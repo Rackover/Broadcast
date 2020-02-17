@@ -25,6 +25,12 @@ namespace Broadcast.Server
             TcpListener server = new TcpListener(IPAddress.Any, Networking.PORT);
             // we set our IP address as server's address, and we also set the port: 9999
 
+            var controller = new Dictionary<byte, Action<byte[], NetworkStream, BinaryFormatter>>() {
+                {Networking.PROTOCOL_SUBMIT, HandleSubmit },
+                {Networking.PROTOCOL_QUERY, HandleQuery },
+                {Networking.PROTOCOL_DELETE, HandleDelete },
+            };
+
 
             server.Start();  // this will start the server
             Console.WriteLine("Broadcast ready - Port " + Networking.PORT + " - Version " + VERSION);
@@ -50,68 +56,12 @@ namespace Broadcast.Server
                             byte[] deserializable = new byte[msgBuffer.Length - 1];
                             Array.Copy(msgBuffer, 1, deserializable, 0, deserializable.Length);
 
-                            switch (messageType) {
-                                case Networking.PROTOCOL_QUERY: // QUERY
-                                    Query query;
-                                    using (MemoryStream ms = new MemoryStream(deserializable)) {
-                                        query = (Query)bf.Deserialize(ms);
-                                    }
-                                    var results = lobbies.FindAll(
-                                        o => {
-                                            if (
-                                                (!query.freeSpotsOnly || o.maxPlayers < o.players) &&
-                                                (!query.officialOnly || o.isOfficial == true) &&
-                                                (!query.publicOnly || o.isPrivate == false) &&
-                                                (!query.strictVersion || o.gameVersion == query.gameVersion) &&
-                                                    query.game == o.game
-                                                ) {
-                                                return true;
-                                            }
-                                            return false;
-                                        }
-                                    );
-                                    if (results.Count > RESPONSE_SIZE) {
-                                        results.RemoveRange(RESPONSE_SIZE, results.Count - RESPONSE_SIZE);
-                                    }
-
-                                    using (MemoryStream ms = new MemoryStream()) {
-                                        bf.Serialize(ms, results);
-                                        ns.WriteData(ms.ToArray());
-                                    }
-
-                                    break;
-
-                                case Networking.PROTOCOL_SUBMIT: // SUBMIT
-                                    Lobby lobby;
-                                    using (MemoryStream ms = new MemoryStream(deserializable)) {
-                                        lobby = (Lobby)bf.Deserialize(ms);
-                                    }
-
-                                    var index = lobbies.FindIndex(o => o.id == lobby.id);
-                                    uint uIntId = 0;
-                                    if (index > -1) {
-                                        uIntId = lobbies[index].id;
-                                        lobbies[index] = lobby;
-                                    }
-                                    else {
-                                        uIntId = Convert.ToUInt32(Math.Floor(new Random().NextDouble() * (uint.MaxValue - 1)) + 1);
-                                        lobby.id = uIntId;
-                                        lobbies.Add(lobby);
-                                    }
-                                    lastHeardAbout[lobby] = DateTime.UtcNow;
-                                    var id = BitConverter.GetBytes(uIntId);
-                                    Array.Reverse(id);
-                                    ns.WriteData(id); // I return the ID of the lobby
-                                    break;
-
-                                case Networking.PROTOCOL_DELETE: // DELETE
-
-                                    break;
-
-                                default:
-                                    // ???
-                                    Console.WriteLine("> " + clientId + " > ???? Message type is " + messageType);
-                                    break;
+                            if (controller.ContainsKey(messageType)) {
+                                controller[messageType](deserializable, ns, bf);
+                            }
+                            else { 
+                                // ???
+                                Console.WriteLine("> " + clientId + " > ???? Message type is " + messageType+", not implemented in this broadcast version");
                             }
                         }
                         catch (IOException) {
@@ -140,7 +90,7 @@ namespace Broadcast.Server
                 var lastTime = lastHeardAbout[lobby];
                 if (DateTime.UtcNow.Subtract(lastTime).TotalHours > HOURS_BEFORE_CLEANUP) {
                     lock (lobbies) {
-                        lobbies.RemoveAll(o=>o.id == lobby.id);
+                        lobbies.RemoveAll(o => o.id == lobby.id);
                         removed++;
                     }
                 }
@@ -148,5 +98,66 @@ namespace Broadcast.Server
             if (removed > 0) Console.WriteLine("Cleanup finished, removed " + removed + " lobbies");
         }
 
+        void HandleQuery(byte[] deserializable, NetworkStream ns, BinaryFormatter bf)
+        {
+            Query query;
+            using (MemoryStream ms = new MemoryStream(deserializable)) {
+                query = (Query)bf.Deserialize(ms);
+            }
+            var results = lobbies.FindAll(
+                o => {
+                    if (
+                        (!query.freeSpotsOnly || o.maxPlayers < o.players) &&
+                        (!query.officialOnly || o.isOfficial == true) &&
+                        (!query.publicOnly || o.isPrivate == false) &&
+                        (!query.strictVersion || o.gameVersion == query.gameVersion) &&
+                            query.game == o.game
+                        ) {
+                        return true;
+                    }
+                    return false;
+                }
+            );
+            if (results.Count > RESPONSE_SIZE) {
+                results.RemoveRange(RESPONSE_SIZE, results.Count - RESPONSE_SIZE);
+            }
+
+            using (MemoryStream ms = new MemoryStream()) {
+                bf.Serialize(ms, results);
+                ns.WriteData(ms.ToArray());
+            }
+        }
+
+        void HandleSubmit(byte[] deserializable, NetworkStream ns, BinaryFormatter bf)
+        {
+            Lobby lobby;
+            using (MemoryStream ms = new MemoryStream(deserializable)) {
+                lobby = (Lobby)bf.Deserialize(ms);
+            }
+
+            var index = lobbies.FindIndex(o => o.id == lobby.id);
+            uint uIntId = 0;
+            if (index > -1) {
+                uIntId = lobbies[index].id;
+                lobbies[index] = lobby;
+            }
+            else {
+                uIntId = Convert.ToUInt32(Math.Floor(new Random().NextDouble() * (uint.MaxValue - 1)) + 1);
+                lobby.id = uIntId;
+                lobbies.Add(lobby);
+            }
+            lastHeardAbout[lobby] = DateTime.UtcNow;
+            var id = BitConverter.GetBytes(uIntId);
+            Array.Reverse(id);
+            ns.WriteData(id); // I return the ID of the lobby
+        }
+
+        void HandleDelete(byte[] deserializable, NetworkStream ns, BinaryFormatter bf)
+        {
+            var targetLobby = BitConverter.ToUInt32(deserializable);
+            lock (lobbies) {
+                lobbies.RemoveAll(o => o.id == targetLobby);
+            }
+        }
     }
 }

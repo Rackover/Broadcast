@@ -24,14 +24,19 @@ namespace Broadcast.Client
         public static void Test()
         {
             NetworkStream stream = client.GetStream();
-
+            List<uint> createdLobbies = new List<uint>();
             try {
                 while (true) {
                     CheckForLobbies(stream);
                     Thread.Sleep(1000);
                     if (new Random().Next(0, 3) < 2) {
-                        CreateLobby(stream);
-                        Thread.Sleep(1000);
+                        createdLobbies.Add(CreateLobby(stream));
+                        Thread.Sleep(5000);
+                    }
+                    else if (new Random().Next(0, 3) < 2 && createdLobbies.Count > 0) {
+                        DestroyLobby(stream, createdLobbies[0]);
+                        createdLobbies.RemoveAt(0);
+                        Thread.Sleep(5000);
                     }
                 }
             }
@@ -77,7 +82,7 @@ namespace Broadcast.Client
             }
         }
 
-        static void CreateLobby(NetworkStream stream)
+        static uint CreateLobby(NetworkStream stream)
         {
             // Send the message to the connected TcpServer. 
             var query = new Lobby() { 
@@ -92,7 +97,7 @@ namespace Broadcast.Client
                 message.Add(Networking.PROTOCOL_SUBMIT);
                 message.AddRange(ms.ToArray());
 
-                Console.WriteLine("Sending NEW Lobby {0} {1} {2} {3}", message[0], message[1], message[2], message[3]);
+                Console.WriteLine("Creating NEW Lobby {0} {1} {2} {3}", message[0], message[1], message[2], message[3]);
 
                 stream.WriteData(message.ToArray());
             }
@@ -103,7 +108,22 @@ namespace Broadcast.Client
             using (MemoryStream ms = new MemoryStream(data)) {
                 uint myId = BitConverter.ToUInt32(ms.ToArray());
                 Console.WriteLine("My lobby ID is {0}", myId);
+                return myId;
             }
+        }
+
+        static void DestroyLobby(NetworkStream stream, uint lobbyId)
+        {
+            List<byte> message = new List<byte>();
+            using (MemoryStream ms = new MemoryStream()) {
+                message.Add(Networking.PROTOCOL_DELETE);
+                message.AddRange(BitConverter.GetBytes(lobbyId));
+
+                Console.WriteLine("Destroying lobby {4}: {0} {1} {2} {3}", message[0], message[1], message[2], message[3], lobbyId);
+
+                stream.WriteData(message.ToArray());
+            }
+
         }
     }
 }
