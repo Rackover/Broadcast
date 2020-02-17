@@ -39,9 +39,7 @@ namespace Broadcast.Shared
             stream.Read(sizeBuffer, 0, sizeBuffer.Length);
 
             var length = BitConverter.ToUInt32(sizeBuffer, 0);
-
-            var msgBuffer = new byte[length];
-
+            
             // Emptying network buffer from data
             var totalDataRead = 0;
             List<byte> data = new List<byte>();
@@ -58,11 +56,10 @@ namespace Broadcast.Shared
             }
 
             // Concatenate data
-            msgBuffer = data.ToArray();
+            var msgBuffer = data.ToArray();
             if (msgBuffer.Length != length) {
                 throw new MessageBuildingException(string.Format("The length of the constructed message buffer is not equal to the planned length (got {0}, expected {1})", msgBuffer.Length, length));
             }
-            Console.WriteLine("Read a message in " + bites + " parts");
 
             return msgBuffer;
         }
