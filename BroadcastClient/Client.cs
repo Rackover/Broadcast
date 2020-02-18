@@ -105,10 +105,10 @@ namespace Broadcast.Client
             List<uint> createdLobbies = new List<uint>();
             try {
                 while (true) {
-                    CheckForLobbies(stream);
+                    CheckForLobbies(stream, new Query() { game = "test" });
                     Thread.Sleep(1000);
                     if (new Random().Next(0, 3) < 2) {
-                        createdLobbies.Add(CreateLobby(stream));
+                        createdLobbies.Add(CreateLobby(stream, new Lobby() { game = "test" }));
                         Thread.Sleep(5000);
                     }
                     else if (new Random().Next(0, 3) < 2 && createdLobbies.Count > 0) {
