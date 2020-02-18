@@ -12,21 +12,24 @@ namespace Broadcast.Client
 {
     public class Client
     {
-        static string game = "test";
+        static string game;
         static List<Lobby> lobbies = new List<Lobby>();
         static TcpClient client;
 
-        public static void Start(string addr)
+        public static void Start(string addr, string gameName = "MyGame")
         {
+            game = gameName;
             client = new TcpClient(addr, Networking.PORT);
         }
 
-        static void CheckForLobbies(NetworkStream stream)
+        static void CheckForLobbies(NetworkStream stream, Query query = null)
         {
             // Send the message to the connected TcpServer. 
-            var query = new Query() {
-                game = game
-            };
+            if (query == null) {
+                query = new Query() {
+                    game = game
+                };
+            }
             var bf = new BinaryFormatter();
 
             List<byte> message = new List<byte>();
@@ -49,7 +52,7 @@ namespace Broadcast.Client
             }
         }
 
-        static uint CreateLobby(NetworkStream stream)
+        static uint CreateLobby(NetworkStream stream, Lobby lobby)
         {
             // Send the message to the connected TcpServer. 
             var query = new Lobby() { 
