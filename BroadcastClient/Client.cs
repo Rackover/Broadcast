@@ -21,39 +21,6 @@ namespace Broadcast.Client
             client = new TcpClient(addr, Networking.PORT);
         }
 
-        public static void Test()
-        {
-            NetworkStream stream = client.GetStream();
-            List<uint> createdLobbies = new List<uint>();
-            try {
-                while (true) {
-                    CheckForLobbies(stream);
-                    Thread.Sleep(1000);
-                    if (new Random().Next(0, 3) < 2) {
-                        createdLobbies.Add(CreateLobby(stream));
-                        Thread.Sleep(5000);
-                    }
-                    else if (new Random().Next(0, 3) < 2 && createdLobbies.Count > 0) {
-                        DestroyLobby(stream, createdLobbies[0]);
-                        createdLobbies.RemoveAt(0);
-                        Thread.Sleep(5000);
-                    }
-                }
-            }
-            catch (IOException) {
-                Thread.Sleep(3000);
-                Console.WriteLine("Server out, retrying...");
-                stream.Close();
-                client.Close();
-            }
-            catch (SocketException) {
-                Thread.Sleep(3000);
-                Console.WriteLine("Server dead, retrying...");
-                stream.Close();
-                client.Close();
-            }
-        }
-
         static void CheckForLobbies(NetworkStream stream)
         {
             // Send the message to the connected TcpServer. 
@@ -125,5 +92,43 @@ namespace Broadcast.Client
             }
 
         }
+
+        /// <summary>
+        /// Test function
+        /// </summary>
+        public static void Test()
+        {
+            NetworkStream stream = client.GetStream();
+            List<uint> createdLobbies = new List<uint>();
+            try {
+                while (true) {
+                    CheckForLobbies(stream);
+                    Thread.Sleep(1000);
+                    if (new Random().Next(0, 3) < 2) {
+                        createdLobbies.Add(CreateLobby(stream));
+                        Thread.Sleep(5000);
+                    }
+                    else if (new Random().Next(0, 3) < 2 && createdLobbies.Count > 0) {
+                        DestroyLobby(stream, createdLobbies[0]);
+                        createdLobbies.RemoveAt(0);
+                        Thread.Sleep(5000);
+                    }
+                }
+            }
+            catch (IOException) {
+                Thread.Sleep(3000);
+                Console.WriteLine("Server out, retrying...");
+                stream.Close();
+                client.Close();
+            }
+            catch (SocketException) {
+                Thread.Sleep(3000);
+                Console.WriteLine("Server dead, retrying...");
+                stream.Close();
+                client.Close();
+            }
+        }
+
+
     }
 }

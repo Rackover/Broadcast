@@ -7,8 +7,9 @@ namespace Broadcast.Shared
     [Serializable]
     public class Lobby
     {
-        public byte broadcastVersion = 1;
+        public byte broadcastVersion = 2;
         public uint id;
+
         public string game = string.Empty;
         public string gameVersion = string.Empty;
         public uint players = 0;
@@ -17,10 +18,15 @@ namespace Broadcast.Shared
         public bool isOfficial = false;
         public string map;
         public string[] mods;
-        public string strAddress = string.Empty;
+        public string name = string.Empty;
         public string description = string.Empty;
         public bool isPrivate = false;
+
         public byte[] address = new byte[4];
+        public string strAddress = string.Empty;
+        public ushort port = 1;
+        public EProtocol protocol = EProtocol.IPv4;
+
         public byte[] data;
     }
 }

@@ -13,7 +13,7 @@ namespace Broadcast.Server
     public class Server
     {
         const ushort RESPONSE_SIZE = 200;
-        const byte VERSION = 1;
+        const byte VERSION = 2;
         const ushort HOURS_BEFORE_CLEANUP = 24;
 
         BinaryFormatter bf = new BinaryFormatter();
