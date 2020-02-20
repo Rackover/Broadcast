@@ -18,7 +18,7 @@ namespace Broadcast.Shared
         public const byte PROTOCOL_SUBMIT = 1;
         public const byte PROTOCOL_DELETE = 2;
         public const ushort MESSAGE_BITE_SIZE = 1024;
-        public const byte VERSION = 3;
+        public const byte VERSION = 4;
 
 
         public static void WriteData(this NetworkStream stream, byte[] data)

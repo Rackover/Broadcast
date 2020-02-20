@@ -1,12 +1,12 @@
-﻿using Broadcast.Shared;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading.Tasks;
+using Broadcast.Shared;
+using MessagePack;
 
 namespace Broadcast.Server
 {
@@ -16,7 +16,6 @@ namespace Broadcast.Server
         const byte VERSION = Networking.VERSION;
         const ushort HOURS_BEFORE_CLEANUP = 24;
 
-        BinaryFormatter bf = new BinaryFormatter();
         List<Lobby> lobbies = new List<Lobby>();
         Dictionary<Lobby, DateTime> lastHeardAbout = new Dictionary<Lobby, DateTime>();
 
@@ -24,10 +23,8 @@ namespace Broadcast.Server
         {
             TcpListener server = new TcpListener(IPAddress.Any, Networking.PORT);
             // we set our IP address as server's address, and we also set the port: 9999
-
-            bf.Binder = new LobbyDeserializationBinder();
-
-            var controller = new Dictionary<byte, Action<byte[], NetworkStream, BinaryFormatter>>() {
+            
+            var controller = new Dictionary<byte, Action<byte[], NetworkStream>>() {
                 {Networking.PROTOCOL_SUBMIT, HandleSubmit },
                 {Networking.PROTOCOL_QUERY, HandleQuery },
                 {Networking.PROTOCOL_DELETE, HandleDelete },
@@ -59,7 +56,7 @@ namespace Broadcast.Server
 
                             if (controller.ContainsKey(messageType)) {
                                 Console.WriteLine("> {0} > {1} {2} bytes", clientId, messageType, deserializable.Length);
-                                controller[messageType](deserializable, ns, bf);
+                                controller[messageType](deserializable, ns);
                             }
                             else { 
                                 // ???
@@ -100,12 +97,10 @@ namespace Broadcast.Server
             if (removed > 0) Console.WriteLine("Cleanup finished, removed " + removed + " lobbies");
         }
 
-        void HandleQuery(byte[] deserializable, NetworkStream ns, BinaryFormatter bf)
+        void HandleQuery(byte[] deserializable, NetworkStream ns)
         {
-            Query query;
-            using (MemoryStream ms = new MemoryStream(deserializable)) {
-                query = (Query)bf.Deserialize(ms);
-            }
+            Query query = MessagePackSerializer.Deserialize<Query>(deserializable);
+
             var results = lobbies.FindAll(
                 o => {
                     if (
@@ -125,17 +120,15 @@ namespace Broadcast.Server
             }
 
             using (MemoryStream ms = new MemoryStream()) {
-                bf.Serialize(ms, results);
+                MessagePackSerializer.Serialize(ms, results);
                 ns.WriteData(ms.ToArray());
             }
         }
 
-        void HandleSubmit(byte[] deserializable, NetworkStream ns, BinaryFormatter bf)
+        void HandleSubmit(byte[] deserializable, NetworkStream ns)
         {
             Lobby lobby;
-            using (MemoryStream ms = new MemoryStream(deserializable)) {
-                lobby = (Lobby)bf.Deserialize(ms);
-            }
+            lobby = MessagePackSerializer.Deserialize<Lobby>(deserializable);
 
             var secretKey = Environment.GetEnvironmentVariable("BROADCAST_GAME_KEY_"+lobby.game);
             if (secretKey != null && secretKey == lobby.secretKey) {
@@ -160,7 +153,7 @@ namespace Broadcast.Server
             ns.WriteData(id); // I return the ID of the lobby
         }
 
-        void HandleDelete(byte[] deserializable, NetworkStream ns, BinaryFormatter bf)
+        void HandleDelete(byte[] deserializable, NetworkStream ns)
         {
             var targetLobby = BitConverter.ToUInt32(deserializable);
             lock (lobbies) {

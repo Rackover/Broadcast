@@ -3,10 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
-using System.Runtime.Serialization.Formatters.Binary;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MessagePack;
 
 namespace Broadcast.Client
 {
@@ -37,12 +38,9 @@ namespace Broadcast.Client
                     game = game
                 };
             }
-            var bf = new BinaryFormatter();
-            bf.Binder = new LobbyDeserializationBinder();
-
             List<byte> message = new List<byte>();
             using (MemoryStream ms = new MemoryStream()) {
-                bf.Serialize(ms, query);
+                MessagePackSerializer.Serialize(ms, query);
                 message.Add(Networking.PROTOCOL_QUERY);
                 message.AddRange(ms.ToArray());
                 stream.WriteData(message.ToArray());
@@ -52,7 +50,7 @@ namespace Broadcast.Client
             var data = stream.Read();
             using (MemoryStream ms = new MemoryStream(data)) {
                 Console.WriteLine("Reading " + data.Length);
-                lobbies = (List<Lobby>)bf.Deserialize(ms);
+                lobbies = MessagePackSerializer.Deserialize<List<Lobby>>(ms);
                 Console.WriteLine("Currently {0} lobbies", lobbies.Count);
             }
         }
@@ -79,11 +77,10 @@ namespace Broadcast.Client
 
             // Send the message to the connected TcpServer. 
             var query = lobby;
-            var bf = new BinaryFormatter();
 
             List<byte> message = new List<byte>();
             using (MemoryStream ms = new MemoryStream()) {
-                bf.Serialize(ms, query);
+                MessagePackSerializer.Serialize<Lobby>(ms, query);
                 message.Add(Networking.PROTOCOL_SUBMIT);
                 message.AddRange(ms.ToArray());
 
@@ -127,12 +124,7 @@ namespace Broadcast.Client
             Console.WriteLine("Starting test");
             try {
                 while (true) {
-                    try {
-                        UpdateLobbyList(new Query() { game = "test" });
-                    }
-                    catch(Exception e) {
-                        Console.WriteLine(e);
-                    }
+                    UpdateLobbyList(new Query() { game = "test" });
                     Thread.Sleep(1000);
                     if (new Random().Next(0, 3) < 2) {
                         createdLobbies.Add(CreateLobby(new Lobby() { game = "test" }));
