@@ -60,7 +60,7 @@ namespace Broadcast.Shared
 
         public static Lobby Deserialize(byte[] data){
             Lobby lobby = new Lobby();
-            using (MemoryStream ms = new MemoryStream()){
+            using (MemoryStream ms = new MemoryStream(data)){
                 using (BinaryReader br = new BinaryReader(ms)){
                     FillLobby(lobby, br);
                 }
@@ -105,7 +105,7 @@ namespace Broadcast.Shared
 
         public static List<Lobby> DeserializeList(byte[] data){
             var lobbies = new List<Lobby>();
-            using (MemoryStream ms = new MemoryStream()){
+            using (MemoryStream ms = new MemoryStream(data)){
                 using (BinaryReader br = new BinaryReader(ms)){
                     var listSize = br.ReadUInt16();
                     for (var _ = 0; _ < listSize; _++){

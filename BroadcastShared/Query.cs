@@ -36,7 +36,7 @@ namespace Broadcast.Shared
 
         public static Query Deserialize(byte[] data){
             Query lobby = new Query();
-            using (MemoryStream ms = new MemoryStream()){
+            using (MemoryStream ms = new MemoryStream(data)){
                 using (BinaryReader br = new BinaryReader(ms)){
                     br.ReadByte();
                     lobby.game = br.ReadString();

@@ -62,10 +62,12 @@ namespace Broadcast.Server
                                 Console.WriteLine("> " + clientId + " > ???? Message type is " + messageType+", not implemented in this broadcast version");
                             }
                         }
-                        catch (IOException) {
+                        catch (IOException e) {
+                            Console.WriteLine("> "+clientId+" > IOException > "+e.ToString());
                             break;
                         }
-                        catch (SocketException) {
+                        catch (SocketException e) {
+                            Console.WriteLine("> "+clientId+" > SocketException > "+e.ToString());
                             break;
                         }
                     }
