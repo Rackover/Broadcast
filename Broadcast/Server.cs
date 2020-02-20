@@ -6,7 +6,6 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Broadcast.Shared;
-using MessagePack;
 
 namespace Broadcast.Server
 {
@@ -99,7 +98,7 @@ namespace Broadcast.Server
 
         void HandleQuery(byte[] deserializable, NetworkStream ns)
         {
-            Query query = MessagePackSerializer.Deserialize<Query>(deserializable);
+            Query query = Query.Deserialize(deserializable);
 
             var results = lobbies.FindAll(
                 o => {
@@ -119,16 +118,14 @@ namespace Broadcast.Server
                 results.RemoveRange(RESPONSE_SIZE, results.Count - RESPONSE_SIZE);
             }
 
-            using (MemoryStream ms = new MemoryStream()) {
-                MessagePackSerializer.Serialize(ms, results);
-                ns.WriteData(ms.ToArray());
-            }
+
+            ns.WriteData(Lobby.SerializeList(lobbies));
         }
 
         void HandleSubmit(byte[] deserializable, NetworkStream ns)
         {
             Lobby lobby;
-            lobby = MessagePackSerializer.Deserialize<Lobby>(deserializable);
+            lobby = Lobby.Deserialize(deserializable);
 
             var secretKey = Environment.GetEnvironmentVariable("BROADCAST_GAME_KEY_"+lobby.game);
             if (secretKey != null && secretKey == lobby.secretKey) {

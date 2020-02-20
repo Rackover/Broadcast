@@ -1,35 +1,121 @@
-﻿using MessagePack;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.IO;
 
 namespace Broadcast.Shared
 {
     [Serializable]
-    [MessagePackObject]
     public class Lobby
     {
-        [Key(0)] public readonly byte broadcastVersion = Networking.VERSION;
-        [Key(1)] public string game = string.Empty;
-        [Key(2)] public uint id;
+        public readonly byte broadcastVersion = Networking.VERSION;
+        public string game = string.Empty;
+        public uint id;
 
-        [Key(3)] public string secretKey = string.Empty;
-        [Key(4)] public string gameVersion = string.Empty;
-        [Key(5)] public uint players = 0;
-        [Key(6)] public uint maxPlayers = 0;
-        [Key(7)] public bool requireAuth = false;
-        [Key(8)] public bool isOfficial = false;
-        [Key(9)] public string map;
-        [Key(10)] public string[] mods;
-        [Key(11)] public string title = string.Empty;
-        [Key(12)] public string description = string.Empty;
-        [Key(13)] public bool isPrivate = false;
+        public string secretKey = string.Empty;
+        public string gameVersion = string.Empty;
+        public uint players = 0;
+        public uint maxPlayers = 0;
+        public bool requireAuth = false;
+        public bool isOfficial = false;
+        public string map;
+        public string[] mods;
+        public string title = string.Empty;
+        public string description = string.Empty;
+        public bool isPrivate = false;
 
-        [Key(14)] public byte[] address = new byte[4];
-        [Key(15)] public string strAddress = string.Empty;
-        [Key(16)] public ushort port = 1;
-        [Key(17)] public EProtocol protocol = EProtocol.IPv4;
+        public byte[] address = new byte[4];
+        public string strAddress = string.Empty;
+        public ushort port = 1;
+        public EProtocol protocol = EProtocol.IPv4;
 
-        [Key(18)] public byte[] data;
+
+        public byte[] Serialize(){
+            byte[] span;
+            using (MemoryStream ms = new MemoryStream()){
+                using (BinaryWriter bw = new BinaryWriter(ms)){
+                    bw.Write(broadcastVersion);
+                    bw.Write(game);
+                    bw.Write(id);
+                    bw.Write(secretKey);
+                    bw.Write(gameVersion);
+                    bw.Write(players);
+                    bw.Write(maxPlayers);
+                    bw.Write(requireAuth);
+                    bw.Write(isOfficial);
+                    bw.Write(map);
+                    bw.Write(string.Join("|", mods));
+                    bw.Write(title);
+                    bw.Write(description);
+                    bw.Write(isPrivate);
+                    bw.Write(address);
+                    bw.Write(strAddress);
+                    bw.Write(port);
+                    bw.Write((byte)protocol);
+                }
+                span = ms.ToArray();
+            }
+            return span;
+        }
+
+        public static Lobby Deserialize(byte[] data){
+            Lobby lobby = new Lobby();
+            using (MemoryStream ms = new MemoryStream()){
+                using (BinaryReader br = new BinaryReader(ms)){
+                    FillLobby(lobby, br);
+                }
+            }
+            return lobby;
+        }
+
+        static void FillLobby(Lobby lobby, BinaryReader br){
+            br.ReadByte(); // Skipping BroadcastVersion
+            lobby.game = br.ReadString();
+            lobby.id = br.ReadUInt32();
+            lobby.secretKey = br.ReadString();
+            lobby.gameVersion = br.ReadString();
+            lobby.players = br.ReadUInt32();
+            lobby.maxPlayers = br.ReadUInt32();
+            lobby.requireAuth = br.ReadBoolean();
+            lobby.isOfficial = br.ReadBoolean();
+            lobby.map = br.ReadString();
+            lobby.mods = br.ReadString().Split("|");
+            lobby.title = br.ReadString();
+            lobby.description = br.ReadString();
+            lobby.isPrivate = br.ReadBoolean();
+            lobby.address = br.ReadBytes(4);
+            lobby.strAddress = br.ReadString();
+            lobby.port = br.ReadUInt16();
+            lobby.protocol = (EProtocol)br.ReadByte();
+        }
+
+        public static byte[] SerializeList(List<Lobby> lobbies){
+            byte[] span;
+            using (MemoryStream ms = new MemoryStream()){
+                using (BinaryWriter bw = new BinaryWriter(ms)){
+                    bw.Write((ushort)(lobbies.Count));
+                    foreach(var lobby in lobbies){
+                        bw.Write(lobby.Serialize());
+                    }
+                    span = ms.ToArray();
+                }
+            }
+            return span;
+        }
+
+        public static List<Lobby> DeserializeList(byte[] data){
+            var lobbies = new List<Lobby>();
+            using (MemoryStream ms = new MemoryStream()){
+                using (BinaryReader br = new BinaryReader(ms)){
+                    var listSize = br.ReadUInt16();
+                    for (var _ = 0; _ < listSize; _++){
+                        var lob = new Lobby();
+                        FillLobby(lob, br);
+                        lobbies.Add(lob);
+                    }
+                }
+            }
+            return lobbies;
+        }
     }
 }

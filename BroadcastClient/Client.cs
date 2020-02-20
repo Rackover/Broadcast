@@ -7,7 +7,6 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MessagePack;
 
 namespace Broadcast.Client
 {
@@ -39,20 +38,15 @@ namespace Broadcast.Client
                 };
             }
             List<byte> message = new List<byte>();
-            using (MemoryStream ms = new MemoryStream()) {
-                MessagePackSerializer.Serialize(ms, query);
-                message.Add(Networking.PROTOCOL_QUERY);
-                message.AddRange(ms.ToArray());
-                stream.WriteData(message.ToArray());
-            }
+            message.Add(Networking.PROTOCOL_QUERY);
+            message.AddRange(query.Serialize());
+            stream.WriteData(message.ToArray());
 
 
             var data = stream.Read();
-            using (MemoryStream ms = new MemoryStream(data)) {
-                Console.WriteLine("Reading " + data.Length);
-                lobbies = MessagePackSerializer.Deserialize<List<Lobby>>(ms);
-                Console.WriteLine("Currently {0} lobbies", lobbies.Count);
-            }
+            lobbies = Lobby.DeserializeList(data);
+            Console.WriteLine("Currently {0} lobbies", lobbies.Count);
+            
         }
 
         static public Lobby CreateLobby(string title, byte[] address, uint currentPlayers=0, uint maxPlayers=8, string gameVersion="???", string map="Unknown")
@@ -79,16 +73,12 @@ namespace Broadcast.Client
             var query = lobby;
 
             List<byte> message = new List<byte>();
-            using (MemoryStream ms = new MemoryStream()) {
-                MessagePackSerializer.Serialize<Lobby>(ms, query);
-                message.Add(Networking.PROTOCOL_SUBMIT);
-                message.AddRange(ms.ToArray());
+            message.Add(Networking.PROTOCOL_SUBMIT);
+            message.AddRange(lobby.Serialize());
 
-                Console.WriteLine("Creating NEW Lobby {0} {1} {2} {3}", message[0], message[1], message[2], message[3]);
+            Console.WriteLine("Creating NEW Lobby {0} {1} {2} {3}", message[0], message[1], message[2], message[3]);
 
-                stream.WriteData(message.ToArray());
-            }
-
+            stream.WriteData(message.ToArray());
 
             var data = stream.Read();
 
