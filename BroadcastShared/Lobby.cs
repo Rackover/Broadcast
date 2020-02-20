@@ -7,8 +7,9 @@ namespace Broadcast.Shared
     [Serializable]
     public class Lobby
     {
-        public byte broadcastVersion = 2;
+        public byte broadcastVersion = Networking.VERSION;
         public uint id;
+        public string secretKey = string.Empty;
 
         public string game = string.Empty;
         public string gameVersion = string.Empty;
@@ -18,7 +19,7 @@ namespace Broadcast.Shared
         public bool isOfficial = false;
         public string map;
         public string[] mods;
-        public string name = string.Empty;
+        public string title = string.Empty;
         public string description = string.Empty;
         public bool isPrivate = false;
 

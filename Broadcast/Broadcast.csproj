@@ -1,12 +1,14 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+	  <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+	  <RootNamespace>Broadcast.Server</RootNamespace>
     <TargetFramework>netcoreapp3.0</TargetFramework>
+    <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BroadcastShared\BroadcastShared.csproj" />
   </ItemGroup>
-
 </Project>

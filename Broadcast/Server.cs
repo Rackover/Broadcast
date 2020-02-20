@@ -13,7 +13,7 @@ namespace Broadcast.Server
     public class Server
     {
         const ushort RESPONSE_SIZE = 200;
-        const byte VERSION = 2;
+        const byte VERSION = Networking.VERSION;
         const ushort HOURS_BEFORE_CLEANUP = 24;
 
         BinaryFormatter bf = new BinaryFormatter();
@@ -133,6 +133,12 @@ namespace Broadcast.Server
             Lobby lobby;
             using (MemoryStream ms = new MemoryStream(deserializable)) {
                 lobby = (Lobby)bf.Deserialize(ms);
+            }
+
+            var secretKey = Environment.GetEnvironmentVariable("BROADCAST_GAME_KEY_"+lobby.game);
+            if (secretKey != null && secretKey == lobby.secretKey) {
+                // Forbidden
+                return;
             }
 
             var index = lobbies.FindIndex(o => o.id == lobby.id);

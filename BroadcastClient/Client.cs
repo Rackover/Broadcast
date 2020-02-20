@@ -22,7 +22,7 @@ namespace Broadcast.Client
             client = new TcpClient(addr, Networking.PORT);
         }
 
-        static void CheckForLobbies(NetworkStream stream, Query query = null)
+        static public void CheckForLobbies(NetworkStream stream, Query query = null)
         {
             // Send the message to the connected TcpServer. 
             if (query == null) {
@@ -52,7 +52,7 @@ namespace Broadcast.Client
             }
         }
 
-        static uint CreateLobby(NetworkStream stream, Lobby lobby)
+        static public uint CreateLobby(NetworkStream stream, Lobby lobby)
         {
             // Send the message to the connected TcpServer. 
             var query = new Lobby() { 
@@ -82,7 +82,7 @@ namespace Broadcast.Client
             }
         }
 
-        static void DestroyLobby(NetworkStream stream, uint lobbyId)
+        static public void DestroyLobby(NetworkStream stream, uint lobbyId)
         {
             List<byte> message = new List<byte>();
             using (MemoryStream ms = new MemoryStream()) {
