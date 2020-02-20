@@ -152,7 +152,7 @@ namespace Broadcast.Server
 
         void HandleDelete(byte[] deserializable, NetworkStream ns)
         {
-            var targetLobby = BitConverter.ToUInt32(deserializable);
+            var targetLobby = BitConverter.ToUInt32(deserializable, 0);
             lock (lobbies) {
                 lobbies.RemoveAll(o => o.id == targetLobby);
             }

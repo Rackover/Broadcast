@@ -83,7 +83,7 @@ namespace Broadcast.Client
             var data = stream.Read();
 
             using (MemoryStream ms = new MemoryStream(data)) {
-                uint myId = BitConverter.ToUInt32(ms.ToArray());
+                uint myId = BitConverter.ToUInt32(ms.ToArray(), 0);
                 Console.WriteLine("My lobby ID is {0}", myId);
                 return myId;
             }

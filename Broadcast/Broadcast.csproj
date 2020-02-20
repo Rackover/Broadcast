@@ -8,10 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MessagePack" Version="2.1.90" />
-  </ItemGroup>
-  
-  <ItemGroup>
     <ProjectReference Include="..\BroadcastShared\BroadcastShared.csproj" />
   </ItemGroup>
 </Project>

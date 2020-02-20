@@ -79,7 +79,7 @@ namespace Broadcast.Shared
             lobby.requireAuth = br.ReadBoolean();
             lobby.isOfficial = br.ReadBoolean();
             lobby.map = br.ReadString();
-            lobby.mods = br.ReadString().Split("|");
+            lobby.mods = br.ReadString().Split('|');
             lobby.title = br.ReadString();
             lobby.description = br.ReadString();
             lobby.isPrivate = br.ReadBoolean();
