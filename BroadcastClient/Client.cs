@@ -38,6 +38,7 @@ namespace Broadcast.Client
                 };
             }
             var bf = new BinaryFormatter();
+            bf.Binder = new LobbyDeserializationBinder();
 
             List<byte> message = new List<byte>();
             using (MemoryStream ms = new MemoryStream()) {

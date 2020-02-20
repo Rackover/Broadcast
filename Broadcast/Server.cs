@@ -25,6 +25,8 @@ namespace Broadcast.Server
             TcpListener server = new TcpListener(IPAddress.Any, Networking.PORT);
             // we set our IP address as server's address, and we also set the port: 9999
 
+            bf.Binder = new LobbyDeserializationBinder();
+
             var controller = new Dictionary<byte, Action<byte[], NetworkStream, BinaryFormatter>>() {
                 {Networking.PROTOCOL_SUBMIT, HandleSubmit },
                 {Networking.PROTOCOL_QUERY, HandleQuery },
@@ -49,14 +51,14 @@ namespace Broadcast.Server
 
                             // BLOCKing
                             var msgBuffer = ns.Read();
-                            Console.WriteLine("> {4} > msg {0} {1} {2} {3}", msgBuffer[0], msgBuffer[1], msgBuffer[2], msgBuffer[3], clientId);
-
+                            if (msgBuffer.Length == 0) continue;
 
                             var messageType = msgBuffer[0];
                             byte[] deserializable = new byte[msgBuffer.Length - 1];
                             Array.Copy(msgBuffer, 1, deserializable, 0, deserializable.Length);
 
                             if (controller.ContainsKey(messageType)) {
+                                Console.WriteLine("> {0} > {1} {2} bytes", clientId, messageType, deserializable.Length);
                                 controller[messageType](deserializable, ns, bf);
                             }
                             else { 
