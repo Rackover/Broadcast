@@ -16,14 +16,21 @@ namespace Broadcast.Client
         static List<Lobby> lobbies = new List<Lobby>();
         static TcpClient client;
 
-        public static void Start(string addr, string gameName = "MyGame")
+        public static void Start(string masterAddress, string gameName)
         {
             game = gameName;
-            client = new TcpClient(addr, Networking.PORT);
+            client = new TcpClient(masterAddress, Networking.PORT);
         }
 
-        static public void CheckForLobbies(NetworkStream stream, Query query = null)
+        static public IReadOnlyList<Lobby> GetLobbyList()
         {
+            return lobbies.AsReadOnly();
+        }
+
+        static public void UpdateLobbyList(Query query = null)
+        {
+            NetworkStream stream = client.GetStream();
+
             // Send the message to the connected TcpServer. 
             if (query == null) {
                 query = new Query() {
@@ -52,13 +59,28 @@ namespace Broadcast.Client
             }
         }
 
-        static public uint CreateLobby(NetworkStream stream, Lobby lobby)
+        static public Lobby CreateLobby(string title, byte[] address, uint currentPlayers=0, uint maxPlayers=8, string gameVersion="???", string map="Unknown")
         {
-            // Send the message to the connected TcpServer. 
-            var query = new Lobby() { 
-                game = game,
-                map = "de_dust2"
+            var lobby = new Lobby() {
+                title = title,
+                address = address,
+                players = currentPlayers,
+                maxPlayers = maxPlayers,
+                gameVersion = gameVersion,
+                map = map
             };
+            lobby.id = CreateLobby(lobby);
+            return lobby;
+        }
+
+        static public uint CreateLobby(Lobby lobby)
+        {
+            NetworkStream stream = client.GetStream();
+
+            lobby.game = game;
+
+            // Send the message to the connected TcpServer. 
+            var query = lobby;
             var bf = new BinaryFormatter();
 
             List<byte> message = new List<byte>();
@@ -82,8 +104,10 @@ namespace Broadcast.Client
             }
         }
 
-        static public void DestroyLobby(NetworkStream stream, uint lobbyId)
+        static public void DestroyLobby( uint lobbyId)
         {
+            NetworkStream stream = client.GetStream();
+
             List<byte> message = new List<byte>();
             using (MemoryStream ms = new MemoryStream()) {
                 message.Add(Networking.PROTOCOL_DELETE);
@@ -101,18 +125,17 @@ namespace Broadcast.Client
         /// </summary>
         public static void Test()
         {
-            NetworkStream stream = client.GetStream();
             List<uint> createdLobbies = new List<uint>();
             try {
                 while (true) {
-                    CheckForLobbies(stream, new Query() { game = "test" });
+                    UpdateLobbyList(new Query() { game = "test" });
                     Thread.Sleep(1000);
                     if (new Random().Next(0, 3) < 2) {
-                        createdLobbies.Add(CreateLobby(stream, new Lobby() { game = "test" }));
+                        createdLobbies.Add(CreateLobby(new Lobby() { game = "test" }));
                         Thread.Sleep(5000);
                     }
                     else if (new Random().Next(0, 3) < 2 && createdLobbies.Count > 0) {
-                        DestroyLobby(stream, createdLobbies[0]);
+                        DestroyLobby(createdLobbies[0]);
                         createdLobbies.RemoveAt(0);
                         Thread.Sleep(5000);
                     }
@@ -121,13 +144,11 @@ namespace Broadcast.Client
             catch (IOException) {
                 Thread.Sleep(3000);
                 Console.WriteLine("Server out, retrying...");
-                stream.Close();
                 client.Close();
             }
             catch (SocketException) {
                 Thread.Sleep(3000);
                 Console.WriteLine("Server dead, retrying...");
-                stream.Close();
                 client.Close();
             }
         }

@@ -7,11 +7,11 @@ namespace Broadcast.Shared
     [Serializable]
     public class Lobby
     {
-        public byte broadcastVersion = Networking.VERSION;
-        public uint id;
-        public string secretKey = string.Empty;
-
+        public readonly byte broadcastVersion = Networking.VERSION;
         public string game = string.Empty;
+        public uint id;
+
+        public string secretKey = string.Empty;
         public string gameVersion = string.Empty;
         public uint players = 0;
         public uint maxPlayers = 0;
