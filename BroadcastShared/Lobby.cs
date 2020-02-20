@@ -19,7 +19,7 @@ namespace Broadcast.Shared
         public bool requireAuth = false;
         public bool isOfficial = false;
         public string map;
-        public string[] mods;
+        public string[] mods = new string[]{};
         public string title = string.Empty;
         public string description = string.Empty;
         public bool isPrivate = false;
