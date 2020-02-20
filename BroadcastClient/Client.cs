@@ -44,9 +44,6 @@ namespace Broadcast.Client
                 bf.Serialize(ms, query);
                 message.Add(Networking.PROTOCOL_QUERY);
                 message.AddRange(ms.ToArray());
-
-                Console.WriteLine("Sending query {0} {1} {2} {3}", message[0], message[1], message[2], message[3]);
-
                 stream.WriteData(message.ToArray());
             }
 
@@ -126,9 +123,15 @@ namespace Broadcast.Client
         public static void Test()
         {
             List<uint> createdLobbies = new List<uint>();
+            Console.WriteLine("Starting test");
             try {
                 while (true) {
-                    UpdateLobbyList(new Query() { game = "test" });
+                    try {
+                        UpdateLobbyList(new Query() { game = "test" });
+                    }
+                    catch(Exception e) {
+                        Console.WriteLine(e);
+                    }
                     Thread.Sleep(1000);
                     if (new Random().Next(0, 3) < 2) {
                         createdLobbies.Add(CreateLobby(new Lobby() { game = "test" }));

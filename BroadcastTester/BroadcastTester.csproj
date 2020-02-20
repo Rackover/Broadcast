@@ -1,12 +1,15 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-	  <RootNamespace>Broadcast.Server</RootNamespace>
     <TargetFramework>netcoreapp3.0</TargetFramework>
+    <RootNamespace>Broadcast.Tester</RootNamespace>
   </PropertyGroup>
-  
+
   <ItemGroup>
+    <ProjectReference Include="..\BroadcastClient\BroadcastClient.csproj" />
     <ProjectReference Include="..\BroadcastShared\BroadcastShared.csproj" />
+    <ProjectReference Include="..\Broadcast\Broadcast.csproj" />
   </ItemGroup>
+
 </Project>
