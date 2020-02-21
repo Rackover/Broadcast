@@ -13,7 +13,7 @@ namespace Broadcast.Server
     {
         const ushort RESPONSE_SIZE = 200;
         const byte VERSION = Networking.VERSION;
-        const ushort HOURS_BEFORE_CLEANUP = 24;
+        const ushort SECONDS_BEFORE_CLEANUP = 30;
 
         List<Lobby> lobbies = new List<Lobby>();
         Dictionary<Lobby, DateTime> lastHeardAbout = new Dictionary<Lobby, DateTime>();
@@ -88,7 +88,7 @@ namespace Broadcast.Server
                     continue;
                 }
                 var lastTime = lastHeardAbout[lobby];
-                if (DateTime.UtcNow.Subtract(lastTime).TotalHours > HOURS_BEFORE_CLEANUP) {
+                if (DateTime.UtcNow.Subtract(lastTime).TotalSeconds > SECONDS_BEFORE_CLEANUP) {
                     lock (lobbies) {
                         lobbies.RemoveAll(o => o.id == lobby.id);
                         removed++;
@@ -120,8 +120,6 @@ namespace Broadcast.Server
                 results.RemoveRange(RESPONSE_SIZE, results.Count - RESPONSE_SIZE);
             }
 
-            Console.WriteLine("Returning "+results.Count+" lobbies");
-
             ns.WriteData(Lobby.SerializeList(lobbies));
         }
 
@@ -136,10 +134,11 @@ namespace Broadcast.Server
                 return;
             }
 
-            var index = lobbies.FindIndex(o => o.id == lobby.id);
+            var index = lobbies.FindIndex(o => o.id == lobby.id || (o.port == lobby.port && o.address.IsSameAs(lobby.address) && o.strAddress == lobby.strAddress));
             uint uIntId = 0;
             if (index > -1) {
                 uIntId = lobbies[index].id;
+                lobby.id = uIntId;
                 lobbies[index] = lobby;
             }
             else {

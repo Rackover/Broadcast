@@ -18,7 +18,7 @@ namespace Broadcast.Shared
         public uint maxPlayers = 0;
         public bool requireAuth = false;
         public bool isOfficial = false;
-        public string map;
+        public string map = string.Empty;
         public string[] mods = new string[]{};
         public string title = string.Empty;
         public string description = string.Empty;

@@ -49,12 +49,11 @@ namespace Broadcast.Client
             
         }
 
-        static public Lobby CreateLobby(string title, byte[] address, uint currentPlayers=0, uint maxPlayers=8, string gameVersion="???", string map="Unknown")
+        static public Lobby CreateLobby(string title, byte[] address, uint maxPlayers=8, string gameVersion="???", string map="Unknown")
         {
             var lobby = new Lobby() {
                 title = title,
                 address = address,
-                players = currentPlayers,
                 maxPlayers = maxPlayers,
                 gameVersion = gameVersion,
                 map = map
@@ -63,20 +62,28 @@ namespace Broadcast.Client
             return lobby;
         }
 
+        static public void UpdateLobby(Lobby lobby)
+        {
+            Console.WriteLine("Updating lobby " + lobby.id);
+            CreateLobby(lobby); // Same thing
+        }
+
         static public uint CreateLobby(Lobby lobby)
+        {
+            Console.WriteLine("Creating lobby");
+            return SubmitLobby(lobby);
+        }
+
+        static uint SubmitLobby(Lobby lobby)
         {
             NetworkStream stream = client.GetStream();
 
             lobby.game = game;
 
             // Send the message to the connected TcpServer. 
-            var query = lobby;
-
             List<byte> message = new List<byte>();
             message.Add(Networking.PROTOCOL_SUBMIT);
             message.AddRange(lobby.Serialize());
-
-            Console.WriteLine("Creating NEW Lobby {0} {1} {2} {3}", message[0], message[1], message[2], message[3]);
 
             stream.WriteData(message.ToArray());
 
@@ -117,7 +124,8 @@ namespace Broadcast.Client
                     UpdateLobbyList(new Query() { game = "test" });
                     Thread.Sleep(1000);
                     if (new Random().Next(0, 3) < 2) {
-                        createdLobbies.Add(CreateLobby(new Lobby() { game = "test" }));
+                        var myLobby = CreateLobby(new Lobby() { game = "test" });
+                        createdLobbies.Add(myLobby);
                         Thread.Sleep(5000);
                     }
                     else if (new Random().Next(0, 3) < 2 && createdLobbies.Count > 0) {
