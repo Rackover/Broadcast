@@ -120,6 +120,7 @@ namespace Broadcast.Server
                 results.RemoveRange(RESPONSE_SIZE, results.Count - RESPONSE_SIZE);
             }
 
+            Console.WriteLine("Returning "+results.Count+" lobbies");
 
             ns.WriteData(Lobby.SerializeList(lobbies));
         }

@@ -93,7 +93,7 @@ namespace Broadcast.Shared
             byte[] span;
             using (MemoryStream ms = new MemoryStream()){
                 using (BinaryWriter bw = new BinaryWriter(ms)){
-                    bw.Write((ushort)(lobbies.Count));
+                    bw.Write((UInt16)(lobbies.Count));
                     foreach(var lobby in lobbies){
                         bw.Write(lobby.Serialize());
                     }
