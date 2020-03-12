@@ -14,3 +14,4 @@ for /l %%n in (0,1,3) do (
 )
 
 
+pause

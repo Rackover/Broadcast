@@ -117,5 +117,10 @@ namespace Broadcast.Shared
             }
             return lobbies;
         }
+
+        public bool HasAddress()
+        {
+            return (address != null && !address.IsSameAs(new byte[4])) || !string.IsNullOrEmpty(strAddress);
+        }
     }
 }

@@ -21,9 +21,8 @@ namespace Broadcast.Server
         public Server()
         {
             TcpListener server = new TcpListener(IPAddress.Any, Networking.PORT);
-            // we set our IP address as server's address, and we also set the port: 9999
             
-            var controller = new Dictionary<byte, Action<byte[], NetworkStream>>() {
+            var controller = new Dictionary<byte, Action<byte[], TcpClient>>() {
                 {Networking.PROTOCOL_SUBMIT, HandleSubmit },
                 {Networking.PROTOCOL_QUERY, HandleQuery },
                 {Networking.PROTOCOL_DELETE, HandleDelete },
@@ -55,7 +54,7 @@ namespace Broadcast.Server
 
                             if (controller.ContainsKey(messageType)) {
                                 Console.WriteLine("> {0} > {1} {2} bytes", clientId, messageType, deserializable.Length);
-                                controller[messageType](deserializable, ns);
+                                controller[messageType](deserializable, client);
                             }
                             else { 
                                 // ???
@@ -98,7 +97,7 @@ namespace Broadcast.Server
             if (removed > 0) Console.WriteLine("Cleanup finished, removed " + removed + " lobbies");
         }
 
-        void HandleQuery(byte[] deserializable, NetworkStream ns)
+        void HandleQuery(byte[] deserializable, TcpClient client)
         {
             Query query = Query.Deserialize(deserializable);
 
@@ -120,10 +119,10 @@ namespace Broadcast.Server
                 results.RemoveRange(RESPONSE_SIZE, results.Count - RESPONSE_SIZE);
             }
 
-            ns.WriteData(Lobby.SerializeList(lobbies));
+            client.GetStream().WriteData(Lobby.SerializeList(lobbies));
         }
 
-        void HandleSubmit(byte[] deserializable, NetworkStream ns)
+        void HandleSubmit(byte[] deserializable, TcpClient client)
         {
             Lobby lobby;
             lobby = Lobby.Deserialize(deserializable);
@@ -132,6 +131,12 @@ namespace Broadcast.Server
             if (secretKey != null && secretKey == lobby.secretKey) {
                 // Forbidden
                 return;
+            }
+
+            // Autofill address
+            if (!lobby.HasAddress()) {
+                lobby.strAddress = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+                lobby.address = ((IPEndPoint)client.Client.RemoteEndPoint).Address.GetIPV4Addr();
             }
 
             var index = lobbies.FindIndex(o => o.id == lobby.id || (o.port == lobby.port && o.address.IsSameAs(lobby.address) && o.strAddress == lobby.strAddress));
@@ -149,10 +154,10 @@ namespace Broadcast.Server
             lastHeardAbout[lobby] = DateTime.UtcNow;
             var id = BitConverter.GetBytes(uIntId);
             Array.Reverse(id);
-            ns.WriteData(id); // I return the ID of the lobby
+            client.GetStream().WriteData(id); // I return the ID of the lobby
         }
 
-        void HandleDelete(byte[] deserializable, NetworkStream ns)
+        void HandleDelete(byte[] deserializable, TcpClient client)
         {
             var targetLobby = BitConverter.ToUInt32(deserializable, 0);
             lock (lobbies) {

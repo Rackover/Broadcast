@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Text;
 
 namespace Broadcast.Shared
@@ -21,5 +23,13 @@ namespace Broadcast.Shared
             }
             return false;
         }
+
+        public static byte[] GetIPV4Addr(this IPAddress addr)
+        {
+            if (addr.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) {
+                return addr.ToString().Split('.').Select(o=> { return Convert.ToByte(o); }).ToArray();
+            }
+            return null;
+        } 
     }
 }
