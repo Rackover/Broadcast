@@ -29,6 +29,7 @@ namespace Broadcast.Shared
         public ushort port = 1;
         public EProtocol protocol = EProtocol.IPv4;
 
+        public byte[] rawData = new byte[] { };
 
         public byte[] Serialize(){
             byte[] span;
@@ -52,6 +53,8 @@ namespace Broadcast.Shared
                     bw.Write(strAddress);
                     bw.Write(port);
                     bw.Write((byte)protocol);
+                    bw.Write(rawData.Length);
+                    bw.Write(rawData);
                 }
                 span = ms.ToArray();
             }
@@ -87,6 +90,7 @@ namespace Broadcast.Shared
             lobby.strAddress = br.ReadString();
             lobby.port = br.ReadUInt16();
             lobby.protocol = (EProtocol)br.ReadByte();
+            lobby.rawData = br.ReadBytes(br.ReadInt32());
         }
 
         public static byte[] SerializeList(List<Lobby> lobbies){

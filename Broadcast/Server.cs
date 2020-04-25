@@ -14,6 +14,7 @@ namespace Broadcast.Server
         const ushort RESPONSE_SIZE = 200;
         const byte VERSION = Networking.VERSION;
         const ushort SECONDS_BEFORE_CLEANUP = 30;
+        const ushort SECONDS_BEFORE_EMPTY_READ = 20;
 
         List<Lobby> lobbies = new List<Lobby>();
         Dictionary<Lobby, DateTime> lastHeardAbout = new Dictionary<Lobby, DateTime>();
@@ -35,10 +36,11 @@ namespace Broadcast.Server
             {
                 TcpClient client = server.AcceptTcpClient();  //if a connection exists, the server will accept it
                 uint clientId = (uint)new Random().Next(int.MaxValue);
-                Console.WriteLine("> ENTER " + clientId);
+                Console.WriteLine("Client ["+clientId+"] just connected (ENTER)");
 
                 new Task(delegate {
                     NetworkStream ns = client.GetStream();
+                    ns.ReadTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
                     while (client.Connected)  //while the client is connected, we look for incoming messages
                     {
                         try {
@@ -53,24 +55,31 @@ namespace Broadcast.Server
                             Array.Copy(msgBuffer, 1, deserializable, 0, deserializable.Length);
 
                             if (controller.ContainsKey(messageType)) {
-                                Console.WriteLine("> {0} > {1} {2} bytes", clientId, messageType, deserializable.Length);
+                                Console.WriteLine("Client [{0}] sent (MessageType:{1}) [Length: {2} bytes]", clientId, messageType, deserializable.Length);
                                 controller[messageType](deserializable, client);
                             }
                             else { 
                                 // ???
-                                Console.WriteLine("> " + clientId + " > ???? Message type is " + messageType+", not implemented in this broadcast version");
+                                Console.WriteLine("Client [" + clientId + "] sent an unknown message type: (MessageType:" + messageType+") is not implemented in this broadcast version");
                             }
                         }
                         catch (IOException e) {
-                            Console.WriteLine("> "+clientId+" > IOException > "+e.ToString());
+                            Console.WriteLine("Client ["+clientId+"] had an IOException (see below)");
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                            Console.WriteLine(e.ToString());
+                            Console.ForegroundColor = ConsoleColor.Gray;
                             break;
                         }
                         catch (SocketException e) {
-                            Console.WriteLine("> "+clientId+" > SocketException > "+e.ToString());
+                            Console.WriteLine("Client [" + clientId + "] had an SocketException (see below)");
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                            Console.WriteLine(e.ToString());
+                            Console.ForegroundColor = ConsoleColor.Gray;
                             break;
                         }
                     }
-                    Console.WriteLine("> EXIT " + clientId);
+                    client.Dispose();
+                    Console.WriteLine("Client ["+clientId+"] is no longer connected (EXIT)");
                 }).Start();
 
 

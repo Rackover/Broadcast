@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BroadcastShared", "Broadcas
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BroadcastClient", "BroadcastClient\BroadcastClient.csproj", "{055CEEFF-D214-44AD-B42F-2EC4A16A05ED}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BroadcastTester", "BroadcastTester\BroadcastTester.csproj", "{73A3F722-B492-4226-ACBE-45D7E525BB08}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BroadcastTester", "BroadcastTester\BroadcastTester.csproj", "{73A3F722-B492-4226-ACBE-45D7E525BB08}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -12,23 +12,37 @@ namespace Broadcast.Client
 {
     public class Client
     {
-        static string game;
-        static List<Lobby> lobbies = new List<Lobby>();
-        static TcpClient client;
+        const ushort SECONDS_BEFORE_EMPTY_READ = 1;
 
-        public static void Start(string masterAddress, string gameName)
+        string game;
+        string address;
+        List<Lobby> lobbies = new List<Lobby>();
+        TcpClient client;
+
+        public Client(string masterAddress, string gameName)
         {
             game = gameName;
-            client = new TcpClient(masterAddress, Networking.PORT);
+            address = masterAddress;
         }
 
-        static public IReadOnlyList<Lobby> GetLobbyList()
+        void Start()
+        {
+            if (client!= null) {
+                client.Dispose();
+            }
+            client = new TcpClient(address, Networking.PORT);
+            client.GetStream().ReadTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
+            Console.WriteLine("Client connected to "+address+":"+Networking.PORT);
+        }
+
+        public IReadOnlyList<Lobby> GetLobbyList()
         {
             return lobbies.AsReadOnly();
         }
 
-        static public void UpdateLobbyList(Query query = null)
+        public void UpdateLobbyList(Query query = null)
         {
+            if (!ConnectIfNotConnected()) return;
             NetworkStream stream = client.GetStream();
 
             // Send the message to the connected TcpServer. 
@@ -42,14 +56,13 @@ namespace Broadcast.Client
             message.AddRange(query.Serialize());
             stream.WriteData(message.ToArray());
 
-
             var data = stream.Read();
             lobbies = Lobby.DeserializeList(data);
             Console.WriteLine("Currently {0} lobbies", lobbies.Count);
             
         }
 
-        static public Lobby CreateLobby(string title, byte[] address, uint maxPlayers=8, string gameVersion="???", string map="Unknown")
+        public Lobby CreateLobby(string title, byte[] address, uint maxPlayers=8, string gameVersion="???", string map="Unknown")
         {
             var lobby = new Lobby() {
                 title = title,
@@ -62,20 +75,21 @@ namespace Broadcast.Client
             return lobby;
         }
 
-        static public void UpdateLobby(Lobby lobby)
+        public void UpdateLobby(Lobby lobby)
         {
             Console.WriteLine("Updating lobby " + lobby.id);
             CreateLobby(lobby); // Same thing
         }
 
-        static public uint CreateLobby(Lobby lobby)
+        public uint CreateLobby(Lobby lobby)
         {
             Console.WriteLine("Creating lobby");
             return SubmitLobby(lobby);
         }
 
-        static uint SubmitLobby(Lobby lobby)
+        uint SubmitLobby(Lobby lobby)
         {
+            if (!ConnectIfNotConnected()) return 0;
             NetworkStream stream = client.GetStream();
 
             lobby.game = game;
@@ -96,8 +110,10 @@ namespace Broadcast.Client
             }
         }
 
-        static public void DestroyLobby( uint lobbyId)
+        public void DestroyLobby( uint lobbyId)
         {
+            if (!ConnectIfNotConnected()) return; 
+
             NetworkStream stream = client.GetStream();
 
             List<byte> message = new List<byte>();
@@ -112,38 +128,72 @@ namespace Broadcast.Client
 
         }
 
+        bool ConnectIfNotConnected()
+        {
+            if (IsConnected()) {
+                Console.WriteLine("Client already connected, nothing to do.");
+                return true;
+            }
+            else {
+                Console.WriteLine("Client not connected, reconnecting...");
+                Start();
+                if (IsConnected()) {
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+        }
+
+        public bool IsConnected()
+        {
+            return client != null && client.Connected;
+        }
+
         /// <summary>
         /// Test function
         /// </summary>
-        public static void Test()
+        public void Test()
         {
             List<uint> createdLobbies = new List<uint>();
-            Console.WriteLine("Starting test");
-            try {
-                while (true) {
+            Console.WriteLine("TEST --> Starting test");
+            while (true) {
+                try {
+                    Console.WriteLine("TEST --> Updating lobby list");
                     UpdateLobbyList(new Query() { game = "test" });
                     Thread.Sleep(1000);
                     if (new Random().Next(0, 3) < 2) {
+                        Console.WriteLine("TEST --> Creating new lobby");
                         var myLobby = CreateLobby(new Lobby() { game = "test" });
                         createdLobbies.Add(myLobby);
                         Thread.Sleep(5000);
                     }
                     else if (new Random().Next(0, 3) < 2 && createdLobbies.Count > 0) {
+                        Console.WriteLine("TEST --> Destroying a created lobby");
                         DestroyLobby(createdLobbies[0]);
                         createdLobbies.RemoveAt(0);
                         Thread.Sleep(5000);
                     }
+                    Console.WriteLine("TEST --> End of decision loop");
                 }
-            }
-            catch (IOException) {
-                Thread.Sleep(3000);
-                Console.WriteLine("Server out, retrying...");
-                client.Close();
-            }
-            catch (SocketException) {
-                Thread.Sleep(3000);
-                Console.WriteLine("Server dead, retrying...");
-                client.Close();
+                catch (IOException) {
+                    Thread.Sleep(3000);
+                    Console.WriteLine("TEST --> Server out, retrying...");
+                    client.Close();
+                }
+                catch (SocketException) {
+                    Thread.Sleep(3000);
+                    Console.WriteLine("TEST --> Server dead, retrying...");
+                    client.Close();
+                }
+                catch (Exception e) {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("TEST --> THIS EXCEPTION SHOULD NOT HAPPEN!");
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    Console.WriteLine(e);
+                    client.Close();
+                }
             }
         }
 

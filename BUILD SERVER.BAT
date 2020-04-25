@@ -8,6 +8,7 @@ set list[2]=linux-arm
 set list[3]=linux-x64
 
 for /l %%n in (0,1,3) do ( 
+   rd /s /q "bin\Release\netcoreapp3.0\!list[%%n]!\publish"
    dotnet publish -c Release -r !list[%%n]! 
    mkdir ..\Release\!list[%%n]! 
    copy bin\Release\netcoreapp3.0\!list[%%n]!\publish ..\Release\!list[%%n]!\.
