@@ -33,7 +33,9 @@ namespace Broadcast.Client
                 logger.Debug("Disposing previous client");
                 client.Dispose();
             }
+            logger.Debug("Instantiating a new client");
             client = new TcpClient(address, Networking.PORT);
+            logger.Debug("Done! Setting receivetimeout...");
             client.ReceiveTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
             logger.Debug("Set client ReceiveTimeout to " + (SECONDS_BEFORE_EMPTY_READ * 1000)+"ms");
             logger.Info("Client connected to "+address+":"+Networking.PORT);
@@ -60,9 +62,15 @@ namespace Broadcast.Client
             message.AddRange(query.Serialize());
             stream.WriteData(message.ToArray());
 
-            var data = stream.Read();
-            lobbies = Lobby.DeserializeList(data);
-            logger.Info("Currently {0} lobbies", lobbies.Count);
+            try {
+                var data = stream.Read();
+                lobbies = Lobby.DeserializeList(data);
+                logger.Info("Currently {0} lobbies", lobbies.Count);
+            }
+            catch(Exception e) { // Gonna be IOException or SocketException
+                logger.Error("Could not update the lobby list:");
+                logger.Error(e.ToString());
+            }
             
         }
 
@@ -103,15 +111,26 @@ namespace Broadcast.Client
             message.Add(Networking.PROTOCOL_SUBMIT);
             message.AddRange(lobby.Serialize());
 
-            stream.WriteData(message.ToArray());
+            try {
+                stream.WriteData(message.ToArray());
 
-            var data = stream.Read();
+                var data = stream.Read();
 
-            using (MemoryStream ms = new MemoryStream(data)) {
-                uint myId = BitConverter.ToUInt32(ms.ToArray(), 0);
-                logger.Debug("My lobby ID is {0}", myId);
-                return myId;
+                using (MemoryStream ms = new MemoryStream(data)) {
+                    uint myId = BitConverter.ToUInt32(ms.ToArray(), 0);
+                    logger.Debug("My lobby ID is {0}", myId);
+                    return myId;
+                }
             }
+            catch(IOException e) {
+                logger.Error("Could not update the lobby list:");
+                logger.Error(e.ToString());
+            }
+            catch (SocketException e) {
+                logger.Error("Could not update the lobby list:");
+                logger.Error(e.ToString());
+            }
+            return 0; // Means this has had an exception of any kind
         }
 
         public void DestroyLobby( uint lobbyId)
@@ -120,14 +139,24 @@ namespace Broadcast.Client
 
             NetworkStream stream = client.GetStream();
 
-            List<byte> message = new List<byte>();
-            using (MemoryStream ms = new MemoryStream()) {
-                message.Add(Networking.PROTOCOL_DELETE);
-                message.AddRange(BitConverter.GetBytes(lobbyId));
+            try {
+                List<byte> message = new List<byte>();
+                using (MemoryStream ms = new MemoryStream()) {
+                    message.Add(Networking.PROTOCOL_DELETE);
+                    message.AddRange(BitConverter.GetBytes(lobbyId));
 
-                logger.Debug("Destroying lobby {4}: {0} {1} {2} {3}", message[0], message[1], message[2], message[3], lobbyId);
+                    logger.Debug("Destroying lobby {4}: {0} {1} {2} {3}", message[0], message[1], message[2], message[3], lobbyId);
 
-                stream.WriteData(message.ToArray());
+                    stream.WriteData(message.ToArray());
+                }
+            }
+            catch (IOException e) {
+                logger.Error("Could not update the lobby list:");
+                logger.Error(e.ToString());
+            }
+            catch (SocketException e) {
+                logger.Error("Could not update the lobby list:");
+                logger.Error(e.ToString());
             }
 
         }
