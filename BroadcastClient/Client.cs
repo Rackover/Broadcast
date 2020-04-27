@@ -18,21 +18,25 @@ namespace Broadcast.Client
         string address;
         List<Lobby> lobbies = new List<Lobby>();
         TcpClient client;
+        Logger logger;
 
         public Client(string masterAddress, string gameName)
         {
             game = gameName;
             address = masterAddress;
+            logger = new Logger(programName: "B_Client", outputToFile: true);
         }
 
         void Start()
         {
             if (client!= null) {
+                logger.Debug("Disposing previous client");
                 client.Dispose();
             }
             client = new TcpClient(address, Networking.PORT);
-            client.GetStream().ReadTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
-            Console.WriteLine("Client connected to "+address+":"+Networking.PORT);
+            client.ReceiveTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
+            logger.Debug("Set client ReceiveTimeout to " + (SECONDS_BEFORE_EMPTY_READ * 1000)+"ms");
+            logger.Info("Client connected to "+address+":"+Networking.PORT);
         }
 
         public IReadOnlyList<Lobby> GetLobbyList()
@@ -58,7 +62,7 @@ namespace Broadcast.Client
 
             var data = stream.Read();
             lobbies = Lobby.DeserializeList(data);
-            Console.WriteLine("Currently {0} lobbies", lobbies.Count);
+            logger.Info("Currently {0} lobbies", lobbies.Count);
             
         }
 
@@ -77,13 +81,13 @@ namespace Broadcast.Client
 
         public void UpdateLobby(Lobby lobby)
         {
-            Console.WriteLine("Updating lobby " + lobby.id);
+            logger.Debug("Updating lobby " + lobby.id);
             CreateLobby(lobby); // Same thing
         }
 
         public uint CreateLobby(Lobby lobby)
         {
-            Console.WriteLine("Creating lobby");
+            logger.Debug("Creating lobby");
             return SubmitLobby(lobby);
         }
 
@@ -105,7 +109,7 @@ namespace Broadcast.Client
 
             using (MemoryStream ms = new MemoryStream(data)) {
                 uint myId = BitConverter.ToUInt32(ms.ToArray(), 0);
-                Console.WriteLine("My lobby ID is {0}", myId);
+                logger.Debug("My lobby ID is {0}", myId);
                 return myId;
             }
         }
@@ -121,7 +125,7 @@ namespace Broadcast.Client
                 message.Add(Networking.PROTOCOL_DELETE);
                 message.AddRange(BitConverter.GetBytes(lobbyId));
 
-                Console.WriteLine("Destroying lobby {4}: {0} {1} {2} {3}", message[0], message[1], message[2], message[3], lobbyId);
+                logger.Debug("Destroying lobby {4}: {0} {1} {2} {3}", message[0], message[1], message[2], message[3], lobbyId);
 
                 stream.WriteData(message.ToArray());
             }
@@ -131,11 +135,11 @@ namespace Broadcast.Client
         bool ConnectIfNotConnected()
         {
             if (IsConnected()) {
-                Console.WriteLine("Client already connected, nothing to do.");
+                logger.Debug("Client already connected, nothing to do.");
                 return true;
             }
             else {
-                Console.WriteLine("Client not connected, reconnecting...");
+                logger.Info("Client not connected, reconnecting...");
                 Start();
                 if (IsConnected()) {
                     return true;
@@ -157,41 +161,41 @@ namespace Broadcast.Client
         public void Test()
         {
             List<uint> createdLobbies = new List<uint>();
-            Console.WriteLine("TEST --> Starting test");
+            logger.Trace("TEST --> Starting test");
             while (true) {
                 try {
-                    Console.WriteLine("TEST --> Updating lobby list");
+                    logger.Trace("TEST --> Updating lobby list");
                     UpdateLobbyList(new Query() { game = "test" });
                     Thread.Sleep(1000);
                     if (new Random().Next(0, 3) < 2) {
-                        Console.WriteLine("TEST --> Creating new lobby");
+                        logger.Trace("TEST --> Creating new lobby");
                         var myLobby = CreateLobby(new Lobby() { game = "test" });
                         createdLobbies.Add(myLobby);
                         Thread.Sleep(5000);
                     }
                     else if (new Random().Next(0, 3) < 2 && createdLobbies.Count > 0) {
-                        Console.WriteLine("TEST --> Destroying a created lobby");
+                        logger.Trace("TEST --> Destroying a created lobby");
                         DestroyLobby(createdLobbies[0]);
                         createdLobbies.RemoveAt(0);
                         Thread.Sleep(5000);
                     }
-                    Console.WriteLine("TEST --> End of decision loop");
+                    logger.Trace("TEST --> End of decision loop");
                 }
                 catch (IOException) {
                     Thread.Sleep(3000);
-                    Console.WriteLine("TEST --> Server out, retrying...");
+                    logger.Trace("TEST --> Server out, retrying...");
                     client.Close();
                 }
                 catch (SocketException) {
                     Thread.Sleep(3000);
-                    Console.WriteLine("TEST --> Server dead, retrying...");
+                    logger.Trace("TEST --> Server dead, retrying...");
                     client.Close();
                 }
                 catch (Exception e) {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("TEST --> THIS EXCEPTION SHOULD NOT HAPPEN!");
+                    logger.Info("TEST --> THIS EXCEPTION SHOULD NOT HAPPEN!");
                     Console.ForegroundColor = ConsoleColor.Gray;
-                    Console.WriteLine(e);
+                    logger.Trace(e.ToString());
                     client.Close();
                 }
             }

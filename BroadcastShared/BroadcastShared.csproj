@@ -3,6 +3,4 @@
   <PropertyGroup>
     <TargetFrameworks>netcoreapp3.0;net471</TargetFrameworks>
   </PropertyGroup>
-
-
 </Project>

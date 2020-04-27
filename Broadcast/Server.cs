@@ -18,9 +18,12 @@ namespace Broadcast.Server
 
         List<Lobby> lobbies = new List<Lobby>();
         Dictionary<Lobby, DateTime> lastHeardAbout = new Dictionary<Lobby, DateTime>();
+        Logger logger;
 
         public Server()
         {
+            logger = new Logger(programName:"B_Server", outputToFile:true);
+
             TcpListener server = new TcpListener(IPAddress.Any, Networking.PORT);
             
             var controller = new Dictionary<byte, Action<byte[], TcpClient>>() {
@@ -31,12 +34,12 @@ namespace Broadcast.Server
 
 
             server.Start();  // this will start the server
-            Console.WriteLine("Broadcast ready - Port " + Networking.PORT + " - Version " + VERSION);
+            logger.Info("Broadcast ready - Port " + Networking.PORT + " - Version " + VERSION);
             while (true)   //we wait for a connection
             {
                 TcpClient client = server.AcceptTcpClient();  //if a connection exists, the server will accept it
                 uint clientId = (uint)new Random().Next(int.MaxValue);
-                Console.WriteLine("Client ["+clientId+"] just connected (ENTER)");
+                logger.Info("Client ["+clientId+"] just connected (ENTER)");
 
                 new Task(delegate {
                     NetworkStream ns = client.GetStream();
@@ -55,31 +58,27 @@ namespace Broadcast.Server
                             Array.Copy(msgBuffer, 1, deserializable, 0, deserializable.Length);
 
                             if (controller.ContainsKey(messageType)) {
-                                Console.WriteLine("Client [{0}] sent (MessageType:{1}) [Length: {2} bytes]", clientId, messageType, deserializable.Length);
+                                logger.Trace("Client [{0}] sent (MessageType:{1}) [Length: {2} bytes]", clientId, messageType, deserializable.Length);
                                 controller[messageType](deserializable, client);
                             }
-                            else { 
+                            else {
                                 // ???
-                                Console.WriteLine("Client [" + clientId + "] sent an unknown message type: (MessageType:" + messageType+") is not implemented in this broadcast version");
+                                logger.Warn("Client [" + clientId + "] sent an unknown message type: (MessageType:" + messageType+") is not implemented in this broadcast version");
                             }
                         }
                         catch (IOException e) {
-                            Console.WriteLine("Client ["+clientId+"] had an IOException (see below)");
-                            Console.ForegroundColor = ConsoleColor.DarkGray;
-                            Console.WriteLine(e.ToString());
-                            Console.ForegroundColor = ConsoleColor.Gray;
+                            logger.Info("Client ["+clientId+"] had an IOException (see debug)");
+                            logger.Debug(e.ToString());
                             break;
                         }
                         catch (SocketException e) {
-                            Console.WriteLine("Client [" + clientId + "] had an SocketException (see below)");
-                            Console.ForegroundColor = ConsoleColor.DarkGray;
-                            Console.WriteLine(e.ToString());
-                            Console.ForegroundColor = ConsoleColor.Gray;
+                            logger.Info("Client [" + clientId + "] had an SocketException (see debug)");
+                            logger.Debug(e.ToString());
                             break;
                         }
                     }
                     client.Dispose();
-                    Console.WriteLine("Client ["+clientId+"] is no longer connected (EXIT)");
+                    logger.Info("Client ["+clientId+"] is no longer connected (EXIT)");
                 }).Start();
 
 
@@ -103,7 +102,7 @@ namespace Broadcast.Server
                     }
                 }
             }
-            if (removed > 0) Console.WriteLine("Cleanup finished, removed " + removed + " lobbies");
+            if (removed > 0) logger.Debug("Cleanup finished, removed " + removed + " lobbies");
         }
 
         void HandleQuery(byte[] deserializable, TcpClient client)
