@@ -8,14 +8,21 @@ To connect to Broadcast with your application, check the Releases page and downl
 Put the two libraries (BroadcastClient and BroadcastShared) anywhere in your project to use them.
 
 ### Usage 
-| I want to        | Function           | Returns  |
-| ------------- |:-------------:| -----:|
-| Start the client (mandatory)      | BroadcastClient.Start(string broadcastServerAddress, string nameOfYourGame) | Nothing |
-| Get the list of lobbies for my game   | BroadcastClient.GetLobbyList() | Read-only list of <Lobby> object 
-| Fetch the list of lobbies from the server   | BroadcastClient.UpdateLobbyList(Query customQuery=null) | Nothing |
-| Create a new lobby      | BroadcastClient.CreateLobby(...) | The lobby you just created, but with an ID delivered by the server |
-| Update information for my lobby | BroadcastClient.UpdateLobby(<Lobby> object) | Nothing |
-| Kill my lobby and remove it from Broadcast | BroadcastClient.DestroyLobby(uint lobbyID) | Nothing |
+Before using the client, you have to instantiate it.
+
+`BroadcastClient clientInstance = new BroadcastClient(string broadcastServerAddress, string nameOfYourGame, bool allowOnlyIPV4)`
+
+Notes : 
+- If you choose to allow IPV6 (by setting `allowOnlyIPV4` to `false`), DNS resolution **may be extremly slow** due to a Microsoft bug. 
+- The client does **not** connect to the server upon construction. It will try establishing a connection when contacting the server. That connection is managed by the BroadcastClient - in case of connection loss, it will reconnect automatically when needed.
+
+| I want to        | Function           | Returns  | Info |
+| ------------- |:-------------:| -----:| -----:|
+| Get the list of lobbies for my game   | clientInstance.GetLobbyList() | Read-only list of <Lobby> object | Returns the local list, does not connect to the server. Use `UpdateLobbyList` to update that list. 
+| Fetch the list of lobbies from the server   | clientInstance.UpdateLobbyList(Query customQuery=null) | Nothing | |
+| Create a new lobby      | clientInstance.CreateLobby(...) | The lobby you just created, but with an ID delivered by the server | |
+| Update information for my lobby | clientInstance.UpdateLobby(<Lobby> object) | Nothing | |
+| Kill my lobby and remove it from Broadcast | clientInstance.DestroyLobby(uint lobbyID) | Nothing | |
  
 ## Server
 Download a binary from the /Releases section according to what you have
