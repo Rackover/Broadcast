@@ -4,7 +4,10 @@ Master server broadcasting for any game
 # How to use
 
 ## Client
-To connect to Broadcast with your application, check the Releases page and download either netcoreapp3.0 (if your application is .NET Core compatible) or net471 (if your application is .NET Framework 4.X compatible, like Unity is).
+To connect to Broadcast with your application, check the Releases page and download **either**:
+- netcoreapp3.0 (if your application is .NET Core compatible) 
+- net471 (if your application is .NET Framework 4.X compatible, like Unity is).
+
 Put the two libraries (BroadcastClient and BroadcastShared) anywhere in your project to use them.
 
 ### Usage 
