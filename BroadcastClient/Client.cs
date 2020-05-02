@@ -2,11 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Broadcast.Client
 {
@@ -15,16 +17,31 @@ namespace Broadcast.Client
         const ushort SECONDS_BEFORE_EMPTY_READ = 1;
 
         string game;
-        string address;
+        IPAddress address;
         List<Lobby> lobbies = new List<Lobby>();
         TcpClient client;
         Logger logger;
 
-        public Client(string masterAddress, string gameName)
+        public Client(string masterAddress, string gameName, bool allowOnlyInterNetworkAddress=false)
         {
-            game = gameName;
-            address = masterAddress;
             logger = new Logger(programName: "B_Client", outputToFile: true);
+            game = gameName;
+
+            logger.Debug("Resolving " + masterAddress + "...");
+            var addresses = Dns.GetHostAddresses(masterAddress);
+
+            logger.Debug("Filtering InterNetwork addresses...");
+            var interAddr = addresses.First(o => !allowOnlyInterNetworkAddress || o.AddressFamily == AddressFamily.InterNetwork);
+
+            if (interAddr == null) {
+                var msg = "Could not resolve the master address [" + masterAddress + "] to any address. Broadcast client could not initialize";
+                logger.Error(msg);
+                throw new WebException(msg);
+            }
+
+            logger.Debug("Resolved " + masterAddress + " to " + interAddr.ToString());
+
+            address = interAddr;
         }
 
         void Start()
@@ -34,7 +51,7 @@ namespace Broadcast.Client
                 client.Dispose();
             }
             logger.Debug("Instantiating a new client");
-            client = new TcpClient(address, Networking.PORT);
+            client = new TcpClient(address.ToString(), Networking.PORT);
             logger.Debug("Done! Setting receivetimeout...");
             client.ReceiveTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
             logger.Debug("Set client ReceiveTimeout to " + (SECONDS_BEFORE_EMPTY_READ * 1000)+"ms");
@@ -123,11 +140,15 @@ namespace Broadcast.Client
                 }
             }
             catch(IOException e) {
-                logger.Error("Could not update the lobby list:");
+                logger.Error("Could not submit the lobby:");
                 logger.Error(e.ToString());
             }
             catch (SocketException e) {
-                logger.Error("Could not update the lobby list:");
+                logger.Error("Could not submit the lobby:");
+                logger.Error(e.ToString());
+            }
+            catch (ArgumentOutOfRangeException e) {
+                logger.Error("No ID was returned upon submitting the lobby, consider the operation invalid:");
                 logger.Error(e.ToString());
             }
             return 0; // Means this has had an exception of any kind
@@ -151,11 +172,11 @@ namespace Broadcast.Client
                 }
             }
             catch (IOException e) {
-                logger.Error("Could not update the lobby list:");
+                logger.Error("Could not destroy the lobby:");
                 logger.Error(e.ToString());
             }
             catch (SocketException e) {
-                logger.Error("Could not update the lobby list:");
+                logger.Error("Could not destroy the lobby:");
                 logger.Error(e.ToString());
             }
 

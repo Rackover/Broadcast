@@ -12,6 +12,7 @@ namespace Broadcast.Shared
     public class Logger
     {
         public enum LEVEL { TRACE, DEBUG, WARNING, INFO, ERROR };
+        readonly string logFilePath = @"logs/{0}{1}.log";
 
         LEVEL level;
         CultureInfo culture = new CultureInfo("fr-FR");
@@ -28,7 +29,6 @@ namespace Broadcast.Shared
         bool outputToFile = false;
         bool outputToConsole = true;
 
-        string logFilePath = @"logs/{0}.log";
         FileStream logFileStream = null;
         string programName;
         Timer flushTimer;
@@ -48,17 +48,29 @@ namespace Broadcast.Shared
             this.outputToConsole = outputToConsole;
 
             if (outputToFile) {
-                logFilePath = string.Format(logFilePath, this.programName);
+                var filePath = string.Format(logFilePath, this.programName, "");
                 Directory.CreateDirectory(
                 Path.GetDirectoryName(
-                        logFilePath
+                        filePath
                     )
                 );
                 if (flushTimer != null) flushTimer.Dispose();
                 if (logFileStream != null) logFileStream.Dispose();
-                if (File.Exists(logFilePath)) File.Delete(logFilePath);
+                logFileStream = null;
 
-                logFileStream = new FileStream(logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                int i = 0;
+                while (logFileStream == null) {
+                    try {
+                        filePath = string.Format(logFilePath, this.programName, i == 0 ? "" : i.ToString());
+                        if (File.Exists(filePath)) File.Delete(filePath);
+
+                        logFileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                    }
+                    catch (IOException) {
+                        // File is locked - increment and retry
+                        i++;
+                    }
+                }
 
                 flushTimer = new Timer(
                     e => {
