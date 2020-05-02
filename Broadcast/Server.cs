@@ -145,7 +145,6 @@ namespace Broadcast.Server
             if (!lobby.HasAddress()) {
                 lobby.strAddress = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
                 lobby.address = ((IPEndPoint)client.Client.RemoteEndPoint).Address.GetIPV4Addr();
-				logger.Info("Auto-filled addresses for newly-submitted lobby to: ["+lobby.strAddress+"] (IPV4: "+string.Join(".", lobby.address)+")");
             }
 
             var index = lobbies.FindIndex(o => o.id == lobby.id || (o.port == lobby.port && o.address.IsSameAs(lobby.address) && o.strAddress == lobby.strAddress));
@@ -159,8 +158,9 @@ namespace Broadcast.Server
                 uIntId = Convert.ToUInt32(Math.Floor(new Random().NextDouble() * (uint.MaxValue - 1)) + 1);
                 lobby.id = uIntId;
                 lobbies.Add(lobby);
+				logger.Info("Created new lobby (ID: "+uIntId+") with addresses ["+lobby.strAddress+"] (IPV4: "+string.Join(".", lobby.address)+")");
             }
-			logger.Info("Created new lobby (ID: "+uIntId+") with addresses ["+lobby.strAddress+"] (IPV4: "+string.Join(".", lobby.address)+")");
+
             lastHeardAbout[lobby] = DateTime.UtcNow;
             var id = BitConverter.GetBytes(uIntId);
             Array.Reverse(id);
