@@ -162,14 +162,12 @@ namespace Broadcast.Client
 
             try {
                 List<byte> message = new List<byte>();
-                using (MemoryStream ms = new MemoryStream()) {
-                    message.Add(Networking.PROTOCOL_DELETE);
-                    message.AddRange(BitConverter.GetBytes(lobbyId));
+                message.Add(Networking.PROTOCOL_DELETE);
+                message.AddRange(BitConverter.GetBytes(lobbyId));
 
-                    logger.Debug("Destroying lobby {4}: {0} {1} {2} {3}", message[0], message[1], message[2], message[3], lobbyId);
+                logger.Debug("Destroying lobby {4}: {0} {1} {2} {3}", message[0], message[1], message[2], message[3], lobbyId);
 
-                    stream.WriteData(message.ToArray());
-                }
+                stream.WriteData(message.ToArray());
             }
             catch (IOException e) {
                 logger.Error("Could not destroy the lobby:");
@@ -202,7 +200,32 @@ namespace Broadcast.Client
 
         public bool IsConnected()
         {
-            return client != null && client.Connected;
+            if (client != null && client.Connected) {
+                try {
+                    NetworkStream stream = client.GetStream();
+                    List<byte> message = new List<byte>();
+                    message.Add(Networking.PROTOCOL_HELLO);
+                    message.AddRange(Encoding.UTF8.GetBytes("Oh hey!"));
+                    stream.WriteData(message.ToArray());
+
+                    var data = stream.Read();
+                    if (data.Length > 0) {
+                        return true;
+                    }
+                    else {
+                        return false;
+                    }
+                }
+                catch (IOException) {
+                    return false;
+                }
+                catch (SocketException) {
+                    return false;
+                }
+            }
+            else {
+                return false;
+            }
         }
 
         /// <summary>

@@ -30,6 +30,7 @@ namespace Broadcast.Server
                 {Networking.PROTOCOL_SUBMIT, HandleSubmit },
                 {Networking.PROTOCOL_QUERY, HandleQuery },
                 {Networking.PROTOCOL_DELETE, HandleDelete },
+                {Networking.PROTOCOL_HELLO, HandleHello }
             };
 
 
@@ -105,8 +106,14 @@ namespace Broadcast.Server
             if (removed > 0) logger.Debug("Cleanup finished, removed " + removed + " lobbies");
         }
 
+        void HandleHello(byte[] _, TcpClient client)
+        {
+            client.GetStream().WriteData(Encoding.UTF8.GetBytes("Hello!"));
+        }
+
         void HandleQuery(byte[] deserializable, TcpClient client)
         {
+            CleanLobbies();
             Query query = Query.Deserialize(deserializable);
 
             var results = lobbies.FindAll(
