@@ -26,7 +26,7 @@ namespace Broadcast.Server
 
             TcpListener server = new TcpListener(IPAddress.Any, Networking.PORT);
             
-            var controller = new Dictionary<byte, Action<byte[], TcpClient>>() {
+            var controller = new Dictionary<byte, Action<byte[], TcpClient, uint>>() {
                 {Networking.PROTOCOL_SUBMIT, HandleSubmit },
                 {Networking.PROTOCOL_QUERY, HandleQuery },
                 {Networking.PROTOCOL_DELETE, HandleDelete },
@@ -60,7 +60,7 @@ namespace Broadcast.Server
 
                             if (controller.ContainsKey(messageType)) {
                                 logger.Trace("Client [{0}] sent (MessageType:{1}) [Length: {2} bytes]", clientId, messageType, deserializable.Length);
-                                controller[messageType](deserializable, client);
+                                controller[messageType](deserializable, client, clientId);
                             }
                             else {
                                 // ???
@@ -77,6 +77,15 @@ namespace Broadcast.Server
                             logger.Debug(e.ToString());
                             break;
                         }
+                        catch (TaskCanceledException e) {
+                            logger.Trace("Caught a task cancellation - probably normal, going to rethrow the cancellation to end the task. Trace below:\n"+e.ToString());
+                            throw new TaskCanceledException(e.ToString()); // Passthrough
+                        }
+                        catch (Exception e) {
+                            logger.Error("UNCAUGHT EXCEPTION IN CLIENT TASK! Ending the task. Trace below:");
+                            logger.Error(e.ToString());
+                            throw new TaskCanceledException();
+                        }
                     }
                     client.Dispose();
                     logger.Info("Client ["+clientId+"] is no longer connected (EXIT)");
@@ -90,6 +99,7 @@ namespace Broadcast.Server
 
         void CleanLobbies()
         {
+            logger.Trace("Cleaning lobbies up...");
             int removed = 0;
             foreach (var lobby in lobbies.ToArray()) {
                 if (!lastHeardAbout.ContainsKey(lobby)) {
@@ -104,17 +114,21 @@ namespace Broadcast.Server
                 }
             }
             if (removed > 0) logger.Debug("Cleanup finished, removed " + removed + " lobbies");
+            logger.Trace("Done cleaning lobbies up");
         }
 
-        void HandleHello(byte[] _, TcpClient client)
+        void HandleHello(byte[] _, TcpClient client, uint clientId)
         {
             client.GetStream().WriteData(Encoding.UTF8.GetBytes("Hello!"));
+            logger.Info("Sent a HELLO to client [{0}]".Format(clientId));
         }
 
-        void HandleQuery(byte[] deserializable, TcpClient client)
+        void HandleQuery(byte[] deserializable, TcpClient client, uint clientId)
         {
             CleanLobbies();
             Query query = Query.Deserialize(deserializable);
+
+            logger.Debug("Preparing to send a lobby list to client [{0}]".Format(clientId));
 
             var results = lobbies.FindAll(
                 o => {
@@ -135,10 +149,13 @@ namespace Broadcast.Server
             }
 
             client.GetStream().WriteData(Lobby.SerializeList(lobbies));
+            logger.Info("Sent a lobby list ({1} lobbies) to client [{0}]!".Format(clientId, lobbies.Count));
         }
 
-        void HandleSubmit(byte[] deserializable, TcpClient client)
+        void HandleSubmit(byte[] deserializable, TcpClient client, uint clientId)
         {
+            logger.Debug("Preparing to decode a lobby submission from client [{0}]".Format(clientId));
+
             Lobby lobby;
             lobby = Lobby.Deserialize(deserializable);
 
@@ -152,6 +169,7 @@ namespace Broadcast.Server
             if (!lobby.HasAddress()) {
                 lobby.strAddress = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
                 lobby.address = ((IPEndPoint)client.Client.RemoteEndPoint).Address.GetIPV4Addr();
+                logger.Debug("Auto-filled lobby submission address with v4:{1}/v6:{2} for client [{0}]".Format(clientId, string.Join(".", lobby.address), lobby.strAddress));
             }
 
             var index = lobbies.FindIndex(o => o.id == lobby.id || (o.port == lobby.port && o.address.IsSameAs(lobby.address) && o.strAddress == lobby.strAddress));
@@ -165,21 +183,26 @@ namespace Broadcast.Server
                 uIntId = Convert.ToUInt32(Math.Floor(new Random().NextDouble() * (uint.MaxValue - 1)) + 1);
                 lobby.id = uIntId;
                 lobbies.Add(lobby);
-				logger.Info("Created new lobby (ID: "+uIntId+") with addresses ["+lobby.strAddress+"] (IPV4: "+string.Join(".", lobby.address)+")");
+				logger.Debug("Created new lobby (ID: "+uIntId+") with addresses ["+lobby.strAddress+"] (IPV4: "+string.Join(".", lobby.address)+")");
             }
 
             lastHeardAbout[lobby] = DateTime.UtcNow;
             var id = BitConverter.GetBytes(uIntId);
             Array.Reverse(id);
             client.GetStream().WriteData(id); // I return the ID of the lobby
+
+            logger.Info("Finished processing lobby submission from client [{0}]!".Format(clientId));
         }
 
-        void HandleDelete(byte[] deserializable, TcpClient client)
+        void HandleDelete(byte[] deserializable, TcpClient client, uint clientId)
         {
+            logger.Debug("Preparing to remove a lobby requested by client [{0}]".Format(clientId));
+
             var targetLobby = BitConverter.ToUInt32(deserializable, 0);
             lock (lobbies) {
                 lobbies.RemoveAll(o => o.id == targetLobby);
             }
+            logger.Info("Finished removing lobby {1} as requested by client [{0}]".Format(clientId, targetLobby));
         }
     }
 }
