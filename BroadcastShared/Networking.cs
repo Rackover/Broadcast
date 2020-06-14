@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Broadcast.Shared
 {
@@ -23,6 +24,33 @@ namespace Broadcast.Shared
         public const byte VERSION = 5;
 
 
+        static Dictionary<NetworkStream, bool> isStreamBusy = new Dictionary<NetworkStream, bool>();
+
+        static bool IsStreamBusy(this NetworkStream stream)
+        {
+            if (!isStreamBusy.ContainsKey(stream)) {
+                isStreamBusy.Add(stream, false);
+            }
+            return isStreamBusy[stream];
+        }
+
+        static void Lock(this NetworkStream stream)
+        {
+            isStreamBusy[stream] = true;
+        }
+
+        static void Unlock(this NetworkStream stream)
+        {
+            isStreamBusy[stream] = false;
+        }
+
+        static void WaitForStreamAvailability(this NetworkStream stream)
+        {
+            while (IsStreamBusy(stream)) {
+                Task.WaitAny(Task.Delay(10));
+            }
+        }
+
         public static void WriteData(this NetworkStream stream, byte[] data)
         {
             var size = BitConverter.GetBytes(Convert.ToUInt32(data.Length));
@@ -32,16 +60,26 @@ namespace Broadcast.Shared
             responseList.AddRange(data);
             var toWrite = responseList.ToArray();
 
+            stream.WaitForStreamAvailability();
+            stream.Lock();
+
             stream.Write(toWrite, 0, toWrite.Length);
+
+            stream.Unlock();
         }
 
         public static byte[] Read(this NetworkStream stream)
         {
             int bites = 0;
             byte[] sizeBuffer = new byte[4]; // UINT32 is 4 bytes
-            stream.Read(sizeBuffer, 0, sizeBuffer.Length);
 
+            stream.WaitForStreamAvailability();
+            stream.Lock();
+
+            stream.Read(sizeBuffer, 0, sizeBuffer.Length);
+            
             var length = BitConverter.ToUInt32(sizeBuffer, 0);
+            if (length == 0) return new byte[0]; // Garbage
             
             // Emptying network buffer from data
             var remainingData = Convert.ToInt64(length);
@@ -56,8 +94,11 @@ namespace Broadcast.Shared
                 Array.Copy(buffer, shrankArray, shrankArray.Length);
 
                 data.AddRange(shrankArray);
-                bites++; 
+                bites++;
             }
+
+            stream.Unlock();
+
 
             // Concatenate data
             var msgBuffer = data.ToArray();

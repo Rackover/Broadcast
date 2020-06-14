@@ -50,11 +50,17 @@ namespace Broadcast.Client
         {
             if (client!= null) {
                 logger.Debug("Disposing previous client");
-                client.Dispose();
+                try {
+                    client.GetStream().Dispose();
+                }
+                catch(InvalidOperationException) { 
+                    // Nothing to do
+                }
+                client.Close();
             }
             logger.Debug("Instantiating a new client");
             client = new TcpClient(address.ToString(), Networking.PORT);
-            logger.Debug("Done! Setting receivetimeout...");
+            logger.Debug("Done! Setting receive timeout...");
             client.ReceiveTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
             logger.Debug("Set client ReceiveTimeout to " + (SECONDS_BEFORE_EMPTY_READ * 1000)+"ms");
             logger.Info("Client connected to "+address+":"+Networking.PORT);
@@ -200,10 +206,11 @@ namespace Broadcast.Client
             }
         }
 
-        public bool IsConnected()
+        bool IsConnected()
         {
             if (client != null && client.Connected) {
                 try {
+
                     NetworkStream stream = client.GetStream();
                     List<byte> message = new List<byte>();
                     message.Add(Networking.PROTOCOL_HELLO);
@@ -211,6 +218,7 @@ namespace Broadcast.Client
                     stream.WriteData(message.ToArray());
 
                     var data = stream.Read();
+                    
                     if (data.Length > 0) {
                         return true;
                     }

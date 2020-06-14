@@ -50,7 +50,9 @@ namespace Broadcast.Server
                         try {
                             // BLOCKing
                             var msgBuffer = ns.Read();
-                            if (msgBuffer.Length == 0) continue;
+                            if (client.Available <= 0 && msgBuffer.Length == 0) {
+                                break;
+                            }
 
                             var messageType = msgBuffer[0];
                             byte[] deserializable = new byte[msgBuffer.Length - 1];
@@ -85,7 +87,8 @@ namespace Broadcast.Server
                             throw new TaskCanceledException();
                         }
                     }
-                    client.Dispose();
+                    ns.Dispose();
+                    client.Close();
                     logger.Info("Client ["+clientId+"] is no longer connected (EXIT)");
                 }).Start();
 
@@ -188,10 +191,9 @@ namespace Broadcast.Server
 
             lastHeardAbout[lobby] = DateTime.UtcNow;
             var id = BitConverter.GetBytes(uIntId);
-            Array.Reverse(id);
             client.GetStream().WriteData(id); // I return the ID of the lobby
 
-            logger.Info("Finished processing lobby submission from client [{0}]!".Format(clientId));
+            logger.Info("Finished processing lobby submission from client [{0}] (gave them ID {1} for their lobby)!".Format(clientId, uIntId));
         }
 
         void HandleDelete(byte[] deserializable, TcpClient client, uint clientId)
@@ -200,7 +202,8 @@ namespace Broadcast.Server
 
             var targetLobby = BitConverter.ToUInt32(deserializable, 0);
             lock (lobbies) {
-                lobbies.RemoveAll(o => o.id == targetLobby);
+                var removed = lobbies.RemoveAll(o => o.id == targetLobby);
+                logger.Debug("Removed {1} lobbies (every lobby with ID {2}) as requested by client [{0}]".Format(clientId, removed, targetLobby)) ;
             }
             logger.Info("Finished removing lobby {1} as requested by client [{0}]".Format(clientId, targetLobby));
         }
