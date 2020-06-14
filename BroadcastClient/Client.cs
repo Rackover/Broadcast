@@ -42,6 +42,8 @@ namespace Broadcast.Client
             logger.Debug("Resolved " + masterAddress + " to " + interAddr.ToString());
 
             address = interAddr;
+
+            Start();
         }
 
         void Start()

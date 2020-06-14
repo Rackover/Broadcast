@@ -48,8 +48,6 @@ namespace Broadcast.Server
                     while (client.Connected)  //while the client is connected, we look for incoming messages
                     {
                         try {
-                            var lengthBuffer = new byte[4]; // uint is 4 bytes
-
                             // BLOCKing
                             var msgBuffer = ns.Read();
                             if (msgBuffer.Length == 0) continue;
@@ -82,7 +80,7 @@ namespace Broadcast.Server
                             throw new TaskCanceledException(e.ToString()); // Passthrough
                         }
                         catch (Exception e) {
-                            logger.Error("UNCAUGHT EXCEPTION IN CLIENT TASK! Ending the task. Trace below:");
+                            logger.Error("UNCAUGHT EXCEPTION IN CLIENT TASK for Client [{0}] ! Ending the task. Trace below:".Format(clientId));
                             logger.Error(e.ToString());
                             throw new TaskCanceledException();
                         }
@@ -119,8 +117,9 @@ namespace Broadcast.Server
 
         void HandleHello(byte[] _, TcpClient client, uint clientId)
         {
-            client.GetStream().WriteData(Encoding.UTF8.GetBytes("Hello!"));
-            logger.Info("Sent a HELLO to client [{0}]".Format(clientId));
+            var helloMsg = Encoding.UTF8.GetBytes("Hello!");
+            client.GetStream().WriteData(helloMsg);
+            logger.Info("Sent a HELLO to client [{0}] ({1} bytes)".Format(clientId, helloMsg.Length));
         }
 
         void HandleQuery(byte[] deserializable, TcpClient client, uint clientId)
@@ -148,8 +147,9 @@ namespace Broadcast.Server
                 results.RemoveRange(RESPONSE_SIZE, results.Count - RESPONSE_SIZE);
             }
 
-            client.GetStream().WriteData(Lobby.SerializeList(lobbies));
-            logger.Info("Sent a lobby list ({1} lobbies) to client [{0}]!".Format(clientId, lobbies.Count));
+            var listBuf = Lobby.SerializeList(lobbies);
+            client.GetStream().WriteData(listBuf);
+            logger.Info("Sent a lobby list ({1} lobbies) to client [{0}]! ({2} bytes)".Format(clientId, lobbies.Count, listBuf.Length));
         }
 
         void HandleSubmit(byte[] deserializable, TcpClient client, uint clientId)
