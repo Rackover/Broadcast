@@ -22,6 +22,8 @@ namespace Broadcast.Client
         TcpClient client;
         Logger logger;
 
+        List<Action> executionQueue = new List<Action>();
+
         public Client(string masterAddress, string gameName, bool allowOnlyInterNetworkAddress=false)
         {
             logger = new Logger(programName: "B_Client", outputToFile: true);
@@ -43,17 +45,44 @@ namespace Broadcast.Client
 
             address = interAddr;
 
+
+            // Main execution queue for async tasks
+            Task.Run(async ()=>
+            {
+                while (true)
+                {
+                    var tasks = executionQueue.ToArray();
+                    foreach (var task in tasks)
+                    {
+                        task.Invoke();
+                        executionQueue.Remove(task);
+                    }
+                    if (tasks.Length != 0) logger.Trace("Executed " + tasks.Length + " tasks this loop");
+                    await Task.Delay(100);
+                }
+            });
+
             Start();
+        }
+
+        void Enqueue(Action action)
+        {
+            lock (executionQueue) {
+                executionQueue.Add(action);
+            }
         }
 
         void Start()
         {
-            if (client!= null) {
+            if (client != null)
+            {
                 logger.Debug("Disposing previous client");
-                try {
+                try
+                {
                     client.GetStream().Dispose();
                 }
-                catch(InvalidOperationException) { 
+                catch (InvalidOperationException)
+                {
                     // Nothing to do
                 }
                 client.Close();
@@ -62,8 +91,9 @@ namespace Broadcast.Client
             client = new TcpClient(address.ToString(), Networking.PORT);
             logger.Debug("Done! Setting receive timeout...");
             client.ReceiveTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
-            logger.Debug("Set client ReceiveTimeout to " + (SECONDS_BEFORE_EMPTY_READ * 1000)+"ms");
-            logger.Info("Client connected to "+address+":"+Networking.PORT);
+
+            logger.Debug("Set client ReceiveTimeout to " + (SECONDS_BEFORE_EMPTY_READ * 1000) + "ms");
+            logger.Info("Client connected to " + address + ":" + Networking.PORT);
         }
 
         public IReadOnlyList<Lobby> GetLobbyList()
@@ -71,14 +101,17 @@ namespace Broadcast.Client
             return lobbies.AsReadOnly();
         }
 
+        // Async
         public void UpdateLobbyList(Query query = null)
         {
             if (!ConnectIfNotConnected()) return;
             NetworkStream stream = client.GetStream();
 
             // Send the message to the connected TcpServer. 
-            if (query == null) {
-                query = new Query() {
+            if (query == null)
+            {
+                query = new Query()
+                {
                     game = game
                 };
             }
@@ -87,18 +120,20 @@ namespace Broadcast.Client
             message.AddRange(query.Serialize());
             stream.WriteData(message.ToArray());
 
-            try {
+            try
+            {
                 var data = stream.Read();
                 lobbies = Lobby.DeserializeList(data);
                 logger.Info("Currently {0} lobbies", lobbies.Count);
             }
-            catch(Exception e) { // Gonna be IOException or SocketException
+            catch (Exception e)
+            { // Gonna be IOException or SocketException
                 logger.Error("Could not update the lobby list:");
                 logger.Error(e.ToString());
             }
-            
         }
 
+        // Sync
         public Lobby CreateLobby(string title, byte[] address, uint maxPlayers=8, string gameVersion="???", string map="Unknown")
         {
             var lobby = new Lobby() {
@@ -112,10 +147,14 @@ namespace Broadcast.Client
             return lobby;
         }
 
+        // Async
         public void UpdateLobby(Lobby lobby)
         {
-            logger.Debug("Updating lobby " + lobby.id);
-            CreateLobby(lobby); // Same thing
+            Enqueue(() =>
+            {
+                logger.Debug("Updating lobby " + lobby.id);
+                CreateLobby(lobby); // Same thing
+            });
         }
 
         public uint CreateLobby(Lobby lobby)
@@ -162,30 +201,69 @@ namespace Broadcast.Client
             return 0; // Means this has had an exception of any kind
         }
 
-        public void DestroyLobby( uint lobbyId)
+        // Async
+        public void DestroyLobby(uint lobbyId)
         {
-            if (!ConnectIfNotConnected()) return; 
+            Enqueue(() =>
+            {
+                if (!ConnectIfNotConnected()) return;
 
-            NetworkStream stream = client.GetStream();
+                NetworkStream stream = client.GetStream();
 
-            try {
-                List<byte> message = new List<byte>();
-                message.Add(Networking.PROTOCOL_DELETE);
-                message.AddRange(BitConverter.GetBytes(lobbyId));
+                try
+                {
+                    List<byte> message = new List<byte>();
+                    message.Add(Networking.PROTOCOL_DELETE);
+                    message.AddRange(BitConverter.GetBytes(lobbyId));
 
-                logger.Debug("Destroying lobby {4}: {0} {1} {2} {3}", message[0], message[1], message[2], message[3], lobbyId);
+                    logger.Debug("Destroying lobby {4}: {0} {1} {2} {3}", message[0], message[1], message[2], message[3], lobbyId);
 
-                stream.WriteData(message.ToArray());
-            }
-            catch (IOException e) {
-                logger.Error("Could not destroy the lobby:");
-                logger.Error(e.ToString());
-            }
-            catch (SocketException e) {
-                logger.Error("Could not destroy the lobby:");
-                logger.Error(e.ToString());
-            }
+                    stream.WriteData(message.ToArray());
+                }
+                catch (IOException e)
+                {
+                    logger.Error("Could not destroy the lobby:");
+                    logger.Error(e.ToString());
+                }
+                catch (SocketException e)
+                {
+                    logger.Error("Could not destroy the lobby:");
+                    logger.Error(e.ToString());
+                }
+            });
+        }
 
+        // Async
+        public void PunchLobby(uint lobbyId)
+        {
+            logger.Trace("Enqueuing lobby punch instruction for lobby " + lobbyId);
+            Enqueue(() =>
+            {
+                if (!ConnectIfNotConnected()) return;
+
+                NetworkStream stream = client.GetStream();
+
+                try
+                {
+                    List<byte> message = new List<byte>();
+                    message.Add(Networking.PROTOCOL_PUNCH);
+                    message.AddRange(BitConverter.GetBytes(lobbyId));
+
+                    logger.Debug("Punching lobby {0}", lobbyId);
+
+                    stream.WriteData(message.ToArray());
+                }
+                catch (IOException e)
+                {
+                    logger.Error("Could not punch the lobby:");
+                    logger.Error(e.ToString());
+                }
+                catch (SocketException e)
+                {
+                    logger.Error("Could not punch the lobby:");
+                    logger.Error(e.ToString());
+                }
+            });
         }
 
         bool ConnectIfNotConnected()
@@ -220,6 +298,31 @@ namespace Broadcast.Client
                     var data = stream.Read();
                     
                     if (data.Length > 0) {
+
+                        switch (data[0])
+                        {
+                            // PROTOCOL--IP1--IP2--IP3--IP4--PORT--PORT
+                            case Networking.PROTOCOL_PUNCH:
+                                if (data.Length < 7)
+                                {
+                                    logger.Warn("Ignored punch request from TCP server because of a malformed request (read " + data.Length + " bytes)");
+                                    return true;
+                                }
+                                var address = data[1] + "." + data[2] + "." + data[3] + "." + data[4];
+                                var port = BitConverter.ToUInt16(new byte[] { data[5], data[6] }, 0);
+                                logger.Debug("Preparing to punch " + address + ":" + port + "...");
+                                Hole.PunchUDP(address, port, logger);
+                                break;
+
+                            case Networking.PROTOCOL_HELLO:
+                                logger.Debug("Received hello from server (" + data.Length + " bytes)");
+                                break;
+
+                            default:
+                                logger.Warn("Received garbage TCP data from broadcast server (read " + data.Length + " bytes, controller " + data[0] + ")");
+                                break;
+                        }
+
                         return true;
                     }
                     else {
@@ -254,13 +357,20 @@ namespace Broadcast.Client
                         logger.Trace("TEST --> Creating new lobby");
                         var myLobby = CreateLobby(new Lobby() { game = "test" });
                         createdLobbies.Add(myLobby);
+                        logger.Trace("TEST --> Successfully created lobby " + myLobby + "");
                         Thread.Sleep(5000);
                     }
-                    else if (new Random().Next(0, 3) < 2 && createdLobbies.Count > 0) {
+                    else if (new Random().Next(0, 3) < 1 && createdLobbies.Count > 0) {
                         logger.Trace("TEST --> Destroying a created lobby");
                         DestroyLobby(createdLobbies[0]);
                         createdLobbies.RemoveAt(0);
                         Thread.Sleep(5000);
+                    }
+                    else if (createdLobbies.Count > 0)
+                    {
+                        logger.Trace("TEST --> Punching a created lobby ("+ createdLobbies[0]+")");
+                        PunchLobby(createdLobbies[0]);
+                        Thread.Sleep(2000);
                     }
                     logger.Trace("TEST --> End of decision loop");
                 }

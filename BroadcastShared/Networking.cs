@@ -15,13 +15,16 @@ namespace Broadcast.Shared
             } 
         }
 
-        public const ushort PORT = 4004;
+        public const ushort PORT = 1000+VERSION;
         public const byte PROTOCOL_QUERY = 0;
         public const byte PROTOCOL_SUBMIT = 1;
         public const byte PROTOCOL_DELETE = 2;
         public const byte PROTOCOL_HELLO = 3;
+        public const byte PROTOCOL_PUNCH = 4;
+
+        public const byte PROTOCOL_GARBAGE_PUNCH = 255;
         public const ushort MESSAGE_BITE_SIZE = 1024;
-        public const byte VERSION = 5;
+        public const byte VERSION = 6;
 
 
         static Dictionary<NetworkStream, bool> isStreamBusy = new Dictionary<NetworkStream, bool>();

@@ -7,6 +7,10 @@
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)'=='win-x64' or '$(RuntimeIdentifier)'=='win-x86'">true</PublishReadyToRun>
     <PublishSingleFile Condition="'$(RuntimeIdentifier)'=='win-x64' or '$(RuntimeIdentifier)'=='win-x86'">true</PublishSingleFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\.editorconfig" Link=".editorconfig" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="System.Net.Primitives" Version="4.3.1" />

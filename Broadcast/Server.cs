@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -20,6 +21,8 @@ namespace Broadcast.Server
         Dictionary<Lobby, DateTime> lastHeardAbout = new Dictionary<Lobby, DateTime>();
         Logger logger;
 
+        Dictionary<TcpClient, byte[]> pendingPunchRequests = new Dictionary<TcpClient, byte[]>();
+
         public Server()
         {
             logger = new Logger(programName:"B_Server", outputToFile:true);
@@ -30,7 +33,8 @@ namespace Broadcast.Server
                 {Networking.PROTOCOL_SUBMIT, HandleSubmit },
                 {Networking.PROTOCOL_QUERY, HandleQuery },
                 {Networking.PROTOCOL_DELETE, HandleDelete },
-                {Networking.PROTOCOL_HELLO, HandleHello }
+                {Networking.PROTOCOL_HELLO, HandleHello },
+                {Networking.PROTOCOL_PUNCH, HandlePunch }
             };
 
 
@@ -68,12 +72,12 @@ namespace Broadcast.Server
                             }
                         }
                         catch (IOException e) {
-                            logger.Info("Client ["+clientId+"] had an IOException (see debug)");
+                            logger.Info("Client ["+clientId+"] triggered an IOException (see debug)");
                             logger.Debug(e.ToString());
                             break;
                         }
                         catch (SocketException e) {
-                            logger.Info("Client [" + clientId + "] had an SocketException (see debug)");
+                            logger.Info("Client [" + clientId + "] triggered a SocketException (see debug)");
                             logger.Debug(e.ToString());
                             break;
                         }
@@ -121,8 +125,29 @@ namespace Broadcast.Server
         void HandleHello(byte[] _, TcpClient client, uint clientId)
         {
             var helloMsg = Encoding.UTF8.GetBytes("Hello!");
-            client.GetStream().WriteData(helloMsg);
-            logger.Info("Sent a HELLO to client [{0}] ({1} bytes)".Format(clientId, helloMsg.Length));
+            var msg = new List<byte>() { Networking.PROTOCOL_HELLO};
+            msg.AddRange(helloMsg);
+
+            var byteMsg = msg.ToArray();
+            bool isRequestingPunch = false;
+
+            if (pendingPunchRequests.ContainsKey(client))
+            {
+                byteMsg = pendingPunchRequests[client];
+                pendingPunchRequests.Remove(client);
+                isRequestingPunch = true;
+            }
+
+            client.GetStream().WriteData(byteMsg);
+
+            if (isRequestingPunch)
+            {
+                logger.Info("Sent a PUNCH request client [{0}] ({1} bytes)".Format(clientId, byteMsg.Length));
+            }
+            else
+            {
+                logger.Info("Sent a HELLO to client [{0}] ({1} bytes)".Format(clientId, byteMsg.Length));
+            }
         }
 
         void HandleQuery(byte[] deserializable, TcpClient client, uint clientId)
@@ -175,7 +200,12 @@ namespace Broadcast.Server
                 logger.Debug("Auto-filled lobby submission address with v4:{1}/v6:{2} for client [{0}]".Format(clientId, string.Join(".", lobby.address), lobby.strAddress));
             }
 
-            var index = lobbies.FindIndex(o => o.id == lobby.id || (o.port == lobby.port && o.address.IsSameAs(lobby.address) && o.strAddress == lobby.strAddress));
+            var index = lobbies.FindIndex(o => 
+                o.GetOwner() == client || 
+                o.id == lobby.id || 
+                (o.port == lobby.port && o.address.IsSameAs(lobby.address) && o.strAddress == lobby.strAddress)
+            );
+
             uint uIntId = 0;
             if (index > -1) {
                 uIntId = lobbies[index].id;
@@ -192,6 +222,7 @@ namespace Broadcast.Server
             lastHeardAbout[lobby] = DateTime.UtcNow;
             var id = BitConverter.GetBytes(uIntId);
             client.GetStream().WriteData(id); // I return the ID of the lobby
+            lobby.SetOwner(client);
 
             logger.Info("Finished processing lobby submission from client [{0}] (gave them ID {1} for their lobby)!".Format(clientId, uIntId));
         }
@@ -200,12 +231,57 @@ namespace Broadcast.Server
         {
             logger.Debug("Preparing to remove a lobby requested by client [{0}]".Format(clientId));
 
-            var targetLobby = BitConverter.ToUInt32(deserializable, 0);
-            lock (lobbies) {
-                var removed = lobbies.RemoveAll(o => o.id == targetLobby);
-                logger.Debug("Removed {1} lobbies (every lobby with ID {2}) as requested by client [{0}]".Format(clientId, removed, targetLobby)) ;
+            var targetLobbyId = BitConverter.ToUInt32(deserializable, 0);
+            var targetLobby = lobbies.Find(o => o.id == targetLobbyId);
+
+            if (targetLobby == null)
+            {
+                logger.Info("Client [{0}] tried to remove lobby {1} but it does not exist. Doing nothing.".Format(clientId, targetLobbyId));
+                return;
             }
-            logger.Info("Finished removing lobby {1} as requested by client [{0}]".Format(clientId, targetLobby));
+
+            if (targetLobby.GetOwner() != client)
+            {
+                logger.Info("Client [{0}] tried to remove lobby {1} but they're not the owner. Doing nothing.".Format(clientId, targetLobbyId));
+                return;
+            }
+
+            lock (lobbies) {
+                var removed = lobbies.RemoveAll(o => o.id == targetLobby.id);
+                logger.Debug("Removed {1} lobbies (every lobby with ID {2}) as requested by client [{0}]".Format(clientId, removed, targetLobbyId)) ;
+            }
+            logger.Info("Finished removing lobby {1} as requested by client [{0}]".Format(clientId, targetLobbyId));
+        }
+
+        void HandlePunch(byte[] deserializable, TcpClient client, uint clientId)
+        {
+            logger.Debug("Preparing to punch a lobby for client [{0}]".Format(clientId));
+
+            var targetLobby = BitConverter.ToUInt32(deserializable, 0);
+            var lobby = lobbies.Find(o => o.id == targetLobby);
+
+            if (lobby == null)
+            {
+                logger.Warn("Asked to punch a NON-EXISTENT lobby {1} as requested by client [{0}]. Doing nothing.".Format(clientId, targetLobby));
+                return;
+            }
+
+            var portBytes = BitConverter.GetBytes(lobby.port);
+
+            var endpoint = ((IPEndPoint)lobby.GetOwner().Client.RemoteEndPoint);
+
+            pendingPunchRequests[lobby.GetOwner()] = new byte[]
+                    {
+                    Networking.PROTOCOL_PUNCH,
+                    lobby.address[0],
+                    lobby.address[1],
+                    lobby.address[2],
+                    lobby.address[3],
+                    portBytes[0],
+                    portBytes[1]
+                    };
+
+            logger.Info("Added pending PUNCH paquet to {0}:{1} (the owner of lobby {2})".Format(endpoint.Address, endpoint.Port, lobby.id));
         }
     }
 }

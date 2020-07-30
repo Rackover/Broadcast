@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Net.Sockets;
 
 namespace Broadcast.Shared
 {
@@ -27,9 +28,12 @@ namespace Broadcast.Shared
         public byte[] address = new byte[4];
         public string strAddress = string.Empty;
         public ushort port = 1;
-        public EProtocol protocol = EProtocol.IPv4;
+        public EInternetworkProtocol internetProtocol = EInternetworkProtocol.IPv4;
+        public ETransportProtocol transportProtocol = ETransportProtocol.CUSTOM;
 
         public byte[] rawData = new byte[] { };
+
+        TcpClient owner;
 
         public byte[] Serialize(){
             byte[] span;
@@ -52,7 +56,8 @@ namespace Broadcast.Shared
                     bw.Write(address);
                     bw.Write(strAddress);
                     bw.Write(port);
-                    bw.Write((byte)protocol);
+                    bw.Write((byte)internetProtocol);
+                    bw.Write((byte)transportProtocol);
                     bw.Write(rawData.Length);
                     bw.Write(rawData);
                 }
@@ -89,7 +94,8 @@ namespace Broadcast.Shared
             lobby.address = br.ReadBytes(4);
             lobby.strAddress = br.ReadString();
             lobby.port = br.ReadUInt16();
-            lobby.protocol = (EProtocol)br.ReadByte();
+            lobby.internetProtocol = (EInternetworkProtocol)br.ReadByte();
+            lobby.transportProtocol = (ETransportProtocol)br.ReadByte();
             lobby.rawData = br.ReadBytes(br.ReadInt32());
         }
 
@@ -125,6 +131,16 @@ namespace Broadcast.Shared
         public bool HasAddress()
         {
             return (address != null && !address.IsSameAs(new byte[4])) || !string.IsNullOrEmpty(strAddress);
+        }
+
+        public void SetOwner(TcpClient client)
+        {
+            this.owner = client;
+        }
+
+        public TcpClient GetOwner()
+        {
+            return owner;
         }
     }
 }
