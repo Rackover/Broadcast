@@ -13,7 +13,7 @@ Put the two libraries (BroadcastClient and BroadcastShared) anywhere in your pro
 ### Usage 
 Before using the client, you have to instantiate it.
 
-`BroadcastClient clientInstance = new BroadcastClient(string broadcastServerAddress, string nameOfYourGame, bool allowOnlyIPV4)`
+`BroadcastClient client = new BroadcastClient(string broadcastServerAddress, string nameOfYourGame, bool allowOnlyIPV4)`
 
 Notes : 
 - If you choose to allow IPV6 (by setting `allowOnlyIPV4` to `false`), DNS resolution **may be extremly slow** due to a Microsoft bug. 
@@ -21,11 +21,12 @@ Notes :
 
 | I want to        | Function           | Returns  | Info |
 | ------------- |:-------------:| -----:| -----:|
-| Get the list of lobbies for my game   | clientInstance.GetLobbyList() | Read-only list of <Lobby> object | Returns the local list, does not connect to the server. Use `UpdateLobbyList` to update that list. 
-| Fetch the list of lobbies from the server   | clientInstance.UpdateLobbyList(Query customQuery=null) | Nothing | |
-| Create a new lobby      | clientInstance.CreateLobby(...) | The lobby you just created, but with an ID delivered by the server | |
-| Update information for my lobby | clientInstance.UpdateLobby(<Lobby> object) | Nothing | |
-| Kill my lobby and remove it from Broadcast | clientInstance.DestroyLobby(uint lobbyID) | Nothing | |
+| Get the list of lobbies for my game   | client.GetLobbyList() | Read-only list of <Lobby> object | Returns the local list, does not connect to the server. Use `UpdateLobbyList` to update that list. 
+| Fetch the list of lobbies from the server   | client.UpdateLobbyList(Query customQuery=null) | Nothing | |
+| Create a new lobby      | client.CreateLobby(...) | The lobby you just created, but with an ID delivered by the server | |
+| Update information for my lobby | client.UpdateLobby(<Lobby> object) | Nothing | |
+| Kill my lobby and remove it from Broadcast | client.DestroyLobby(uint lobbyID) | Nothing | |
+| Hole-punch the host to allow myself through the host's NAT | client.PunchLobby(uint lobbyID) | Nothing | Only works if the lobby uses `ETransportProtocol.UDP` |
  
 ## Server
 Download a binary from the /Releases section according to what you have
@@ -37,7 +38,7 @@ Download a binary from the /Releases section according to what you have
 Unzip and run `Broadcast`(.exe). This should work out of the box.
 
 # Notes
-- Broadcast runs on port 4004
+- Broadcast runs on port 100{`a`} where `a` is the Broadcast version. *Example: Broadcast v6 runs on port 1006*.
 - Lobby that hasn't sent trace of life in the past 30 seconds are cleaned up and destroyed from the server
 - Broadcast uses the major version number (X) to signal compatibility break. Minor version number and revision number (Y and Z) are usually quality of life improvements or bugfixes, but no protocol change.
 - Broadcast returns maximum 200 lobbies when queried
