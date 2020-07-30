@@ -15,7 +15,7 @@ namespace Broadcast.Shared
             } 
         }
 
-        public const ushort PORT = 1000+VERSION;
+        public const ushort PORT = 10000+VERSION;
         public const byte PROTOCOL_QUERY = 0;
         public const byte PROTOCOL_SUBMIT = 1;
         public const byte PROTOCOL_DELETE = 2;
