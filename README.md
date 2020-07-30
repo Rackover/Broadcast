@@ -38,7 +38,7 @@ Download a binary from the /Releases section according to what you have
 Unzip and run `Broadcast`(.exe). This should work out of the box.
 
 # Notes
-- Broadcast runs on port 100{`a`} where `a` is the Broadcast version. *Example: Broadcast v6 runs on port 1006*.
+- Broadcast runs on port 1000{`a`} where `a` is the Broadcast version. *Example: Broadcast v6 runs on port 10006*.
 - Lobby that hasn't sent trace of life in the past 30 seconds are cleaned up and destroyed from the server
 - Broadcast uses the major version number (X) to signal compatibility break. Minor version number and revision number (Y and Z) are usually quality of life improvements or bugfixes, but no protocol change.
 - Broadcast returns maximum 200 lobbies when queried
