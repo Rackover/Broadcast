@@ -16,8 +16,9 @@ namespace Broadcast.Shared
         public bool freeSpotsOnly = false;
         public bool publicOnly = false;
         public bool strictVersion = false;
+        public string title = "";
 
-         public byte[] Serialize(){
+        public byte[] Serialize(){
             byte[] span;
             using (MemoryStream ms = new MemoryStream()){
                 using (BinaryWriter bw = new BinaryWriter(ms)){

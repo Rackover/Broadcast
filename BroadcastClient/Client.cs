@@ -107,6 +107,7 @@ namespace Broadcast.Client
         public void UpdateLobbyList(Query query = null)
         {
             if (!ConnectIfNotConnected()) return;
+            lobbies.Clear();
             NetworkStream stream = client.GetStream();
 
             // Send the message to the connected TcpServer. 
