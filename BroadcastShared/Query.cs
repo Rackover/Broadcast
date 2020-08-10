@@ -18,6 +18,14 @@ namespace Broadcast.Shared
         public bool strictVersion = false;
         public string title = "";
 
+        Query(){
+
+        }
+
+        public Query(string game){
+            this.game = game;
+        }
+
         public byte[] Serialize(){
             byte[] span;
             using (MemoryStream ms = new MemoryStream()){
@@ -29,6 +37,7 @@ namespace Broadcast.Shared
                     bw.Write(freeSpotsOnly);
                     bw.Write(publicOnly);
                     bw.Write(strictVersion);
+                    bw.Write(title);
                 }
                 span = ms.ToArray();
             }
@@ -36,19 +45,20 @@ namespace Broadcast.Shared
         }
 
         public static Query Deserialize(byte[] data){
-            Query lobby = new Query();
+            Query query = new Query();
             using (MemoryStream ms = new MemoryStream(data)){
                 using (BinaryReader br = new BinaryReader(ms)){
                     br.ReadByte();
-                    lobby.game = br.ReadString();
-                    lobby.gameVersion = br.ReadString();
-                    lobby.officialOnly = br.ReadBoolean();
-                    lobby.freeSpotsOnly = br.ReadBoolean();
-                    lobby.publicOnly = br.ReadBoolean();
-                    lobby.strictVersion = br.ReadBoolean();
+                    query.game = br.ReadString();
+                    query.gameVersion = br.ReadString();
+                    query.officialOnly = br.ReadBoolean();
+                    query.freeSpotsOnly = br.ReadBoolean();
+                    query.publicOnly = br.ReadBoolean();
+                    query.strictVersion = br.ReadBoolean();
+                    query.title = br.ReadString();
                 }
             }
-            return lobby;
+            return query;
         }   
     }
 
