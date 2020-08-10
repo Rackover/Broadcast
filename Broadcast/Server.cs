@@ -269,19 +269,20 @@ namespace Broadcast.Server
             var portBytes = BitConverter.GetBytes(lobby.port);
 
             var endpoint = ((IPEndPoint)lobby.GetOwner().Client.RemoteEndPoint);
+            var originBytes = ((IPEndPoint)client.Client.RemoteEndPoint).Address.GetAddressBytes();
 
             pendingPunchRequests[lobby.GetOwner()] = new byte[]
                     {
                     Networking.PROTOCOL_PUNCH,
-                    lobby.address[0],
-                    lobby.address[1],
-                    lobby.address[2],
-                    lobby.address[3],
+                    originBytes[0],
+                    originBytes[1],
+                    originBytes[2],
+                    originBytes[3],
                     portBytes[0],
                     portBytes[1]
                     };
 
-            logger.Info("Added pending PUNCH paquet to {0}:{1} (the owner of lobby {2})".Format(endpoint.Address, endpoint.Port, lobby.id));
+            logger.Info("Added pending PUNCH paquet for {3} towards {0}:{1} (the owner of lobby {2})".Format(string.Join(".", originBytes), lobby.port, lobby.id, endpoint.Address));
         }
     }
 }

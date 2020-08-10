@@ -312,7 +312,7 @@ namespace Broadcast.Client
                                 }
                                 var address = data[1] + "." + data[2] + "." + data[3] + "." + data[4];
                                 var port = BitConverter.ToUInt16(new byte[] { data[5], data[6] }, 0);
-                                logger.Debug("Preparing to punch " + address + ":" + port + "...");
+                                logger.Debug("Invoking punch at " + address + ":" + port + "...");
                                 onPunchRequest.Invoke((new byte[] { data[1], data[2], data[3], data[4] }, port));
                                 break;
 
