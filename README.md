@@ -13,7 +13,13 @@ Put the two libraries (BroadcastClient and BroadcastShared) anywhere in your pro
 ### Usage 
 Before using the client, you have to instantiate it.
 
-`BroadcastClient client = new BroadcastClient(string broadcastServerAddress, string nameOfYourGame, bool allowOnlyIPV4)`
+```
+var client = new BroadcastClient(
+        string broadcastServerAddress, 
+        string nameOfYourGame, 
+        bool allowOnlyIPV4
+)
+```
 
 Notes : 
 - If you choose to allow IPV6 (by setting `allowOnlyIPV4` to `false`), DNS resolution **may be extremly slow** due to a Microsoft bug. 

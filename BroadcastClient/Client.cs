@@ -107,15 +107,13 @@ namespace Broadcast.Client
         public void UpdateLobbyList(Query query = null)
         {
             if (!ConnectIfNotConnected()) return;
+            lobbies.Clear();
             NetworkStream stream = client.GetStream();
 
             // Send the message to the connected TcpServer. 
             if (query == null)
             {
-                query = new Query()
-                {
-                    game = game
-                };
+                query = new Query(game);
             }
             List<byte> message = new List<byte>();
             message.Add(Networking.PROTOCOL_QUERY);
@@ -353,7 +351,7 @@ namespace Broadcast.Client
             while (true) {
                 try {
                     logger.Trace("TEST --> Updating lobby list");
-                    UpdateLobbyList(new Query() { game = "test" });
+                    UpdateLobbyList(new Query("test"));
                     Thread.Sleep(1000);
                     if (new Random().Next(0, 3) < 2) {
                         logger.Trace("TEST --> Creating new lobby");
