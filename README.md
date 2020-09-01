@@ -32,8 +32,8 @@ Notes :
 | Create a new lobby      | client.CreateLobby(...) | The lobby you just created, but with an ID delivered by the server | |
 | Update information for my lobby | client.UpdateLobby(<Lobby> object) | Nothing | |
 | Kill my lobby and remove it from Broadcast | client.DestroyLobby(uint lobbyID) | Nothing | |
-| Hole-punch the host to allow myself through the host's NAT | client.PunchLobby(uint lobbyID) | Nothing | Only works if the lobby uses `ETransportProtocol.UDP` |
- 
+| Requests the host to hole-punch me. | client.PunchLobby(uint lobbyID) | Nothing | Only works if the lobby uses `ETransportProtocol.UDP` |
+
 ## Server
 Download a binary from the /Releases section according to what you have
 - winx86 for Windows 32 bit
@@ -48,3 +48,5 @@ Unzip and run `Broadcast`(.exe). This should work out of the box.
 - Lobby that hasn't sent trace of life in the past 30 seconds are cleaned up and destroyed from the server
 - Broadcast uses the major version number (X) to signal compatibility break. Minor version number and revision number (Y and Z) are usually quality of life improvements or bugfixes, but no protocol change.
 - Broadcast returns maximum 200 lobbies when queried
+- Broadcast does not implement hole punching: it only implements a message "requesting" a punch from the client to the host. The actual punching implementation is left to the application.
+
