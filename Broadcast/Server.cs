@@ -72,8 +72,13 @@ namespace Broadcast.Server
                             }
                         }
                         catch (IOException e) {
-                            logger.Info("Client ["+clientId+"] triggered an IOException (see debug)");
-                            logger.Debug(e.ToString());
+                            if (e?.InnerException is SocketException socketException && socketException.SocketErrorCode == SocketError.TimedOut) {
+                                logger.Info("Client [" + clientId + "] is no longer connected (TIME OUT)");
+                            }
+                            else {
+                                logger.Info("Client [" + clientId + "] triggered an IOException (see debug)");
+                                logger.Debug(e.ToString());
+                            }
                             break;
                         }
                         catch (SocketException e) {
