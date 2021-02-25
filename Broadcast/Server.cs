@@ -160,7 +160,7 @@ namespace Broadcast.Server
             var results = lobbies.FindAll(
                 o => {
                     if (
-                        (query.title.Length == 0 || o.title.Contains(query.title)) &&
+                        (query.title.Length == 0 || o.title.ToLower().Contains(query.title.ToLower())) &&
                         (!query.freeSpotsOnly || o.maxPlayers < o.players) &&
                         (!query.officialOnly || o.isOfficial == true) &&
                         (!query.publicOnly || o.isPrivate == false) &&

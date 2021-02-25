@@ -20,7 +20,7 @@ namespace Broadcast.Shared
         public bool requireAuth = false;
         public bool isOfficial = false;
         public string map = string.Empty;
-        public string[] mods = new string[]{};
+        public string[] mods = new string[0];
         public string title = string.Empty;
         public string description = string.Empty;
         public bool isPrivate = false;
@@ -88,6 +88,7 @@ namespace Broadcast.Shared
             lobby.isOfficial = br.ReadBoolean();
             lobby.map = br.ReadString();
             lobby.mods = br.ReadString().Split('|');
+            lobby.mods = lobby.mods.Length == 1 && lobby.mods[0].Length == 0 ? new string[0] : lobby.mods; // Quick fix for the split who can't return empty arrays >:(
             lobby.title = br.ReadString();
             lobby.description = br.ReadString();
             lobby.isPrivate = br.ReadBoolean();
