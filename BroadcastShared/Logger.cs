@@ -14,13 +14,13 @@ namespace Broadcast.Shared
         public enum LEVEL { TRACE, DEBUG, WARNING, INFO, ERROR };
         readonly string logFilePath = @"logs/{0}{1}.log";
 
-        LEVEL level;
+        readonly LEVEL level = LEVEL.TRACE;
         CultureInfo culture = new CultureInfo("fr-FR");
         Dictionary<LEVEL, ConsoleColor> colors = new Dictionary<LEVEL, ConsoleColor>()
         {
-            {LEVEL.TRACE, ConsoleColor.Magenta },
-            {LEVEL.DEBUG, ConsoleColor.Gray },
-            {LEVEL.INFO, ConsoleColor.White },
+            {LEVEL.TRACE, ConsoleColor.Gray },
+            {LEVEL.DEBUG, ConsoleColor.White },
+            {LEVEL.INFO, ConsoleColor.Green },
             {LEVEL.WARNING, ConsoleColor.Yellow },
             {LEVEL.ERROR, ConsoleColor.Red }
         };
@@ -29,67 +29,45 @@ namespace Broadcast.Shared
         bool outputToFile = false;
         bool outputToConsole = true;
 
-        FileStream logFileStream = null;
+        StreamWriter logWriter;
         string programName;
         Timer flushTimer;
         Action<object> logFunction = (Action<object>)Console.WriteLine;
 
-        public Logger(string programName = null, bool outputToFile = false, bool outputToConsole = true)
+        public Logger(string programName = null, bool outputToFile = false, bool outputToConsole = true, bool addDateSuffix = false)
         {
             if (programName == null) programName = Path.GetFileNameWithoutExtension(Process.GetCurrentProcess().MainModule.FileName);
 
-            Initialize(programName, outputToFile, outputToConsole);
+            Initialize(programName, outputToFile, outputToConsole, addDateSuffix);
         }
 
-        void Initialize(string programName, bool outputToFile = false, bool outputToConsole = true)
+        void Initialize(string programName, bool outputToFile = false, bool outputToConsole = true, bool addDateSuffix = false)
         {
             this.programName = programName;
             this.outputToFile = outputToFile;
             this.outputToConsole = outputToConsole;
 
             if (outputToFile) {
-                var filePath = string.Format(logFilePath, this.programName, "");
+                var filePath = string.Format(logFilePath, this.programName, addDateSuffix ? DateTime.Now.ToString("yyyy.MM.dd-HH.mm.ss") : string.Empty);
                 Directory.CreateDirectory(
                 Path.GetDirectoryName(
                         filePath
                     )
                 );
-                if (flushTimer != null) flushTimer.Dispose();
-                if (logFileStream != null) logFileStream.Dispose();
-                logFileStream = null;
+                flushTimer?.Dispose();
+                logWriter?.Dispose();
 
-                int i = 0;
-                while (logFileStream == null) {
-                    try {
-                        filePath = string.Format(logFilePath, this.programName, i == 0 ? "" : i.ToString());
-                        if (File.Exists(filePath)) File.Delete(filePath);
-
-                        logFileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.Read);
-                    }
-                    catch (IOException) {
-                        // File is locked - increment and retry
-                        i++;
-                    }
-                }
+                var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                logWriter = new StreamWriter(fs, Encoding.UTF8, 1024);
 
                 flushTimer = new Timer(
                     e => {
-                        logFileStream.Flush();
+                        logWriter.Flush();
                     },
                     null,
                     TimeSpan.Zero,
                     TimeSpan.FromMilliseconds(flushEvery));
             }
-        }
-
-        public void SetLevel(LEVEL level)
-        {
-            this.level = level;
-        }
-
-        public void SetConsoleFunction(Action<object> function)
-        {
-            this.logFunction = function;
         }
 
         public void Trace(string format, params object[] msgs) { LogMessage(LEVEL.TRACE, format, msgs); }
@@ -123,9 +101,7 @@ namespace Broadcast.Shared
             }
 
             if (outputToFile) {
-                using (StreamWriter sw = new StreamWriter(logFileStream, Encoding.UTF8, 1024, leaveOpen: true)) {
-                    sw.WriteLine(line);
-                }
+                logWriter.WriteLine(line);
             }
         }
     }

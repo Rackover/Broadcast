@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFrameworks>netcoreapp3.1;net471</TargetFrameworks>
+    <TargetFrameworks>net6.0;net471</TargetFrameworks>
     <ApplicationIcon />
     <StartupObject />
   </PropertyGroup>

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>	  <RootNamespace>Broadcast.Server</RootNamespace>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFrameworks>net471;net6.0</TargetFrameworks>
     <PublishTrimmed>true</PublishTrimmed>
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)'=='win-x64' or '$(RuntimeIdentifier)'=='win-x86'">true</PublishReadyToRun>
     <PublishSingleFile Condition="'$(RuntimeIdentifier)'=='win-x64' or '$(RuntimeIdentifier)'=='win-x86'">true</PublishSingleFile>
