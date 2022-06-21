@@ -25,7 +25,7 @@ namespace Broadcast.Server
         private readonly Dictionary<Lobby, DateTime> lastHeardAbout = new Dictionary<Lobby, DateTime>();
         private readonly Dictionary<TcpClient, byte[]> pendingPunchRequests = new Dictionary<TcpClient, byte[]>();
         private readonly Logger logger;
-        private readonly RNGCryptoServiceProvider random;
+        private readonly RandomNumberGenerator random;
 
 
         public Server()
@@ -38,7 +38,7 @@ namespace Broadcast.Server
 
             logger = new Logger(programName: "B_Server", outputToFile: true, addDateSuffix: true);
 
-            random = new RNGCryptoServiceProvider();
+            random = RandomNumberGenerator.Create();
 
             TcpListener server = new TcpListener(IPAddress.Any, Networking.PORT);
 

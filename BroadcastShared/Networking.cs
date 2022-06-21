@@ -85,10 +85,7 @@ namespace Broadcast.Shared
                 while (gotSize && bytes.Count >= sizeToRead) {
                     byte[] finalBuff = bytes.Pop(sizeToRead);
 
-                    Console.WriteLine($"We read what we needed!");
-
                     if (onRead.Invoke(finalBuff)) {
-                        System.Diagnostics.Debug.WriteLine($"Message read, will continue reading on stream {stream.GetHashCode()}...");
 
                         if (bytes.Count < sizeof(int)) {
                             gotSize = false;
@@ -98,7 +95,6 @@ namespace Broadcast.Shared
                         }
                     }
                     else {
-                        System.Diagnostics.Debug.WriteLine($"Done reading on stream {stream.GetHashCode()}!");
                         return;
                     }
                 }
@@ -115,7 +111,7 @@ namespace Broadcast.Shared
                 bytes.AddRange(trimmedBuff);
 
                 if (gotSize) {
-                    Console.WriteLine($"On stream {stream.GetHashCode()} read {bytes.Count} out of {sizeToRead}...");
+                    // Do nothing
                 }
                 else {
                     // Acquire size
@@ -125,8 +121,6 @@ namespace Broadcast.Shared
                     else {
                         gotSize = true;
                         sizeToRead = bytes.PopSize();
-
-                        Console.WriteLine($"Acquired size of next message on stream {stream.GetHashCode()}! Will be {sizeToRead} bytes long");
                     }
                 }
             }
