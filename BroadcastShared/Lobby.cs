@@ -13,7 +13,6 @@ namespace Broadcast.Shared
         public string game = string.Empty;
         public uint id;
 
-        public string secretKey = string.Empty;
         public string gameVersion = string.Empty;
         public uint players = 0;
         public uint maxPlayers = 0;
@@ -35,14 +34,14 @@ namespace Broadcast.Shared
 
         TcpClient owner;
 
-        public byte[] Serialize(){
+        public byte[] Serialize()
+        {
             byte[] span;
-            using (MemoryStream ms = new MemoryStream()){
-                using (BinaryWriter bw = new BinaryWriter(ms)){
+            using (MemoryStream ms = new MemoryStream()) {
+                using (BinaryWriter bw = new BinaryWriter(ms)) {
                     bw.Write(broadcastVersion);
                     bw.Write(game);
                     bw.Write(id);
-                    bw.Write(secretKey);
                     bw.Write(gameVersion);
                     bw.Write(players);
                     bw.Write(maxPlayers);
@@ -66,21 +65,22 @@ namespace Broadcast.Shared
             return span;
         }
 
-        public static Lobby Deserialize(byte[] data){
+        public static Lobby Deserialize(byte[] data)
+        {
             Lobby lobby = new Lobby();
-            using (MemoryStream ms = new MemoryStream(data)){
-                using (BinaryReader br = new BinaryReader(ms)){
+            using (MemoryStream ms = new MemoryStream(data)) {
+                using (BinaryReader br = new BinaryReader(ms)) {
                     FillLobby(lobby, br);
                 }
             }
             return lobby;
         }
 
-        static void FillLobby(Lobby lobby, BinaryReader br){
+        static void FillLobby(Lobby lobby, BinaryReader br)
+        {
             br.ReadByte(); // Skipping BroadcastVersion
             lobby.game = br.ReadString();
             lobby.id = br.ReadUInt32();
-            lobby.secretKey = br.ReadString();
             lobby.gameVersion = br.ReadString();
             lobby.players = br.ReadUInt32();
             lobby.maxPlayers = br.ReadUInt32();
@@ -100,26 +100,32 @@ namespace Broadcast.Shared
             lobby.rawData = br.ReadBytes(br.ReadInt32());
         }
 
-        public static byte[] SerializeList(List<Lobby> lobbies){
+        public static byte[] SerializeList(List<Lobby> lobbies)
+        {
             byte[] span;
-            using (MemoryStream ms = new MemoryStream()){
-                using (BinaryWriter bw = new BinaryWriter(ms)){
-                    bw.Write((UInt16)(lobbies.Count));
-                    foreach(var lobby in lobbies){
-                        bw.Write(lobby.Serialize());
+            using (MemoryStream ms = new MemoryStream()) {
+                using (BinaryWriter bw = new BinaryWriter(ms)) {
+
+                    lock (lobbies) {
+                        bw.Write((ushort)lobbies.Count);
+                        foreach (var lobby in lobbies) {
+                            bw.Write(lobby.Serialize());
+                        }
                     }
-                    span = ms.ToArray();
                 }
+
+                span = ms.ToArray();
             }
             return span;
         }
 
-        public static List<Lobby> DeserializeList(byte[] data){
+        public static List<Lobby> DeserializeList(byte[] data)
+        {
             var lobbies = new List<Lobby>();
-            using (MemoryStream ms = new MemoryStream(data)){
-                using (BinaryReader br = new BinaryReader(ms)){
+            using (MemoryStream ms = new MemoryStream(data)) {
+                using (BinaryReader br = new BinaryReader(ms)) {
                     var listSize = br.ReadUInt16();
-                    for (var _ = 0; _ < listSize; _++){
+                    for (var _ = 0; _ < listSize; _++) {
                         var lob = new Lobby();
                         FillLobby(lob, br);
                         lobbies.Add(lob);

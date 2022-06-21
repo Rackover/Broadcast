@@ -12,7 +12,8 @@ namespace Broadcast.Tester
             new Task(delegate {
                 new Server.Server();
             }).Start();
-            new Client.Client("localhost", "test", true).Test();
+
+            new Client.Client("localhost", "test", true).Test().Wait();
         }
     }
 }

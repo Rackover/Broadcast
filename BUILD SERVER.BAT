@@ -9,7 +9,7 @@ set list[3]=linux-x64
 
 for /l %%n in (0,1,3) do ( 
    rd /s /q "bin\Release\net6.0\!list[%%n]!\publish"
-   dotnet publish -c Release -r !list[%%n]! 
+   dotnet publish -c Release --framework net6.0 --self-contained -r !list[%%n]! 
    rd /s /q "..\Release\!list[%%n]!"
    mkdir ..\Release\!list[%%n]! 
    copy bin\Release\net6.0\!list[%%n]!\publish ..\Release\!list[%%n]!\.

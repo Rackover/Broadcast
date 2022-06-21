@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 
@@ -70,30 +71,25 @@ namespace Broadcast.Shared
             }
         }
 
-        public void Trace(string format, params object[] msgs) { LogMessage(LEVEL.TRACE, format, msgs); }
-        public void Debug(string format, params object[] msgs) { LogMessage(LEVEL.DEBUG, format, msgs); }
-        public void Info(string format, params object[] msgs) { LogMessage(LEVEL.INFO, format, msgs); }
-        public void Warn(string format, params object[] msgs) { LogMessage(LEVEL.WARNING, format, msgs); }
-        public void Error(string format, params object[] msgs) { LogMessage(LEVEL.ERROR, format, msgs); }
-        public void Fatal(Exception e)
-        {
-            LogMessage(LEVEL.ERROR, "================== FATAL ==================");
-            LogMessage(LEVEL.ERROR, e.ToString());
-            Console.ReadKey();
-            Environment.Exit(1);
-        }
 
-        void LogMessage(LEVEL msgLevel, string format, params object[] msgs)
+
+        public void Trace(object msgs, [CallerFilePath] string filePath = "") { LogMessage(LEVEL.TRACE, msgs, filePath); }
+        public void Debug(object msgs, [CallerFilePath] string filePath = "") { LogMessage(LEVEL.DEBUG, msgs, filePath); }
+        public void Info(object msgs, [CallerFilePath] string filePath = "") { LogMessage(LEVEL.INFO, msgs, filePath); }
+        public void Warn(object msgs, [CallerFilePath] string filePath = "") { LogMessage(LEVEL.WARNING, msgs, filePath); }
+        public void Error(object msgs, [CallerFilePath] string filePath = "") { LogMessage(LEVEL.ERROR, msgs, filePath); }
+
+        void LogMessage(LEVEL msgLevel, object msgs, string filePath = "")
         {
             if (msgLevel < level) {
                 return;
             }
 
             string caller = programName;
-            
+
             // Debug line formatting
-            string line = "{0} [{1}] [{2}]: {3}";
-            line = string.Format(line, DateTime.Now.ToString(culture.DateTimeFormat.LongTimePattern), msgLevel.ToString(), caller, string.Format(format, msgs));
+            string line = "{0} [{1}] [{2}]:{3}";
+            line = string.Format(line, DateTime.Now.ToString(culture.DateTimeFormat.LongTimePattern), msgLevel.ToString(), filePath, string.Join(" ", msgs));
 
             if (outputToConsole) {
                 Console.ForegroundColor = colors[msgLevel];

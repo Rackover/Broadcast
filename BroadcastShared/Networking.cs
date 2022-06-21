@@ -1,118 +1,161 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
-using System.Text;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Broadcast.Shared
 {
     public static class Networking
     {
-        public class MessageBuildingException : Exception {
-            public MessageBuildingException(string msg, byte[] constructed) : base(msg + "\n" + string.Join(" ", constructed.Select(o=>o.ToString("X2")))){
-
-            } 
-        }
-
-        public const ushort PORT = 10000+VERSION;
+        public const ushort PORT = 10000 + VERSION;
         public const byte PROTOCOL_QUERY = 0;
         public const byte PROTOCOL_SUBMIT = 1;
         public const byte PROTOCOL_DELETE = 2;
         public const byte PROTOCOL_HELLO = 3;
-        public const byte PROTOCOL_PUNCH = 4;
+        public const byte PROTOCOL_REQUEST_PUNCH_TO_LOBBY = 4;
+        public const byte PROTOCOL_QUERY_RESPONSE = 5;
+        public const byte PROTOCOL_SUBMISSION_RESPONSE = 6;
+        public const byte PROTOCOL_HELLO_PLEASE_PUNCH = 7;
 
         public const byte PROTOCOL_GARBAGE_PUNCH = 255;
-        public const ushort MESSAGE_BITE_SIZE = 1024;
-        public const byte VERSION = 6;
+        public const byte VERSION = 7;
 
-
-        static Dictionary<NetworkStream, bool> isStreamBusy = new Dictionary<NetworkStream, bool>();
-
-        static bool IsStreamBusy(this NetworkStream stream)
-        {
-            if (!isStreamBusy.ContainsKey(stream)) {
-                isStreamBusy.Add(stream, false);
-            }
-            return isStreamBusy[stream];
-        }
-
-        static void Lock(this NetworkStream stream)
-        {
-            isStreamBusy[stream] = true;
-        }
-
-        static void Unlock(this NetworkStream stream)
-        {
-            isStreamBusy[stream] = false;
-        }
-
-        static void WaitForStreamAvailability(this NetworkStream stream)
-        {
-            while (IsStreamBusy(stream)) {
-                Task.WaitAny(Task.Delay(10));
-            }
-        }
+        private const ushort MESSAGE_BITE_SIZE = 1024;
 
         public static void WriteData(this NetworkStream stream, byte[] data)
         {
-            var size = BitConverter.GetBytes(Convert.ToUInt32(data.Length));
-
             var responseList = new List<byte>();
-            responseList.AddRange(size);
+            int size = data.Length;
+            responseList.AddRange(BitConverter.GetBytes(size));
             responseList.AddRange(data);
             var toWrite = responseList.ToArray();
 
-            stream.WaitForStreamAvailability();
-            stream.Lock();
-
-            stream.Write(toWrite, 0, toWrite.Length);
-
-            stream.Unlock();
+            lock (stream) {
+                stream.Write(toWrite, 0, toWrite.Length);
+            }
         }
 
-        public static byte[] Read(this NetworkStream stream)
+        public static byte[] ReadUntilControllerFound(this NetworkStream stream, params byte[] controllers)
         {
-            int bites = 0;
-            byte[] sizeBuffer = new byte[4]; // UINT32 is 4 bytes
+            return ReadUntilControllerFound(stream, out _, controllers);
+        }
 
-            stream.WaitForStreamAvailability();
-            stream.Lock();
+        public static byte[] ReadUntilControllerFound(this NetworkStream stream, out byte controller, params byte[] controllers)
+        {
+            byte[] bytesRead = null;
+            byte controllerFound = 0;
+            stream.ReadForever((data) =>
+            {
+                bool shouldContinue = true;
+                for (int i = 0; i < controllers.Length; i++) {
+                    if (data[0] == controllers[i]) {
+                        shouldContinue = false;
+                        controllerFound = data[0];
+                        break;
+                    }
+                }
 
-            stream.Read(sizeBuffer, 0, sizeBuffer.Length);
-            
-            var length = BitConverter.ToUInt32(sizeBuffer, 0);
-            if (length == 0) return new byte[0]; // Garbage
-            
-            // Emptying network buffer from data
-            var remainingData = Convert.ToInt64(length);
+                if (!shouldContinue) {
+                    bytesRead = new byte[data.Length - 1];
+                    Array.Copy(data, 1, bytesRead, 0, bytesRead.Length);
+                }
 
-            List<byte> data = new List<byte>();
-            while (remainingData > 0) {
-                byte[] buffer = new byte[Math.Min(remainingData, MESSAGE_BITE_SIZE)];
-                var dataRead = stream.Read(buffer, 0, (int)Math.Min(remainingData, MESSAGE_BITE_SIZE));
-                remainingData -= dataRead;
+                return shouldContinue;
+            });
 
-                byte[] shrankArray = new byte[dataRead];
-                Array.Copy(buffer, shrankArray, shrankArray.Length);
+            controller = controllerFound;
+            return bytesRead;
+        }
 
-                data.AddRange(shrankArray);
-                bites++;
+        public delegate bool OnMessageReadDelegate(byte[] dataRead);
+
+        /// <summary>
+        /// Delegate should return true to keep reading
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="onRead"></param>
+        /// <returns></returns>
+        public static void ReadForever(this NetworkStream stream, OnMessageReadDelegate onRead)
+        {
+            Console.WriteLine($"Reading forever on stream {stream.GetHashCode()}...");
+            var bytes = new List<byte>();
+            bool gotSize = false;
+            int sizeToRead = 0;
+
+            while (true) {
+                while (gotSize && bytes.Count >= sizeToRead) {
+                    byte[] finalBuff = bytes.Pop(sizeToRead);
+
+                    Console.WriteLine($"We read what we needed!");
+
+                    if (onRead.Invoke(finalBuff)) {
+                        System.Diagnostics.Debug.WriteLine($"Message read, will continue reading on stream {stream.GetHashCode()}...");
+
+                        if (bytes.Count < sizeof(int)) {
+                            gotSize = false;
+                        }
+                        else {
+                            sizeToRead = bytes.PopSize();
+                        }
+                    }
+                    else {
+                        System.Diagnostics.Debug.WriteLine($"Done reading on stream {stream.GetHashCode()}!");
+                        return;
+                    }
+                }
+
+                var buff = new byte[MESSAGE_BITE_SIZE];
+                int bytesRead;
+
+                lock (stream) {
+                    bytesRead = stream.Read(buff, 0, MESSAGE_BITE_SIZE);
+                }
+
+                byte[] trimmedBuff = new byte[bytesRead];
+                Array.Copy(buff, trimmedBuff, bytesRead);
+                bytes.AddRange(trimmedBuff);
+
+                if (gotSize) {
+                    Console.WriteLine($"On stream {stream.GetHashCode()} read {bytes.Count} out of {sizeToRead}...");
+                }
+                else {
+                    // Acquire size
+                    if (bytes.Count < sizeof(int)) {
+                        continue;
+                    }
+                    else {
+                        gotSize = true;
+                        sizeToRead = bytes.PopSize();
+
+                        Console.WriteLine($"Acquired size of next message on stream {stream.GetHashCode()}! Will be {sizeToRead} bytes long");
+                    }
+                }
+            }
+        }
+
+        private static int PopSize(this List<byte> buff)
+        {
+            byte[] intBuff = buff.Pop(sizeof(int));
+            return BitConverter.ToInt32(intBuff, 0);
+        }
+
+        private static byte[] Pop(this List<byte> buff, int length)
+        {
+            byte[] result = new byte[length];
+            for (int i = 0; i < length; i++) {
+                result[i] = buff[i];
             }
 
-            stream.Unlock();
+            buff.RemoveRange(0, length);
+            return result;
+        }
 
+        public static byte[] PrefixWith(this byte[] data, byte controller)
+        {
+            var final = new List<byte>(data.Length + 1);
+            final.Add(controller);
+            final.AddRange(data);
 
-            // Concatenate data
-            var msgBuffer = data.ToArray();
-            if (msgBuffer.Length != length) {
-                throw new MessageBuildingException(
-                    string.Format("The length of the constructed message buffer is not equal to the planned length (got {0}, expected {1}). Full message below.", msgBuffer.Length, length),
-                    msgBuffer
-                );
-            }
-
-            return msgBuffer;
+            return final.ToArray();
         }
     }
 }
