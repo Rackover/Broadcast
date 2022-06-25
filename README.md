@@ -5,10 +5,10 @@ Master server broadcasting for any game
 
 ## Client
 To connect to Broadcast with your application, check the Releases page and download **either**:
-- netcoreapp3.0 (if your application is .NET Core compatible) 
+- net6.0 (if your application is .NET Standard compatible) 
 - net471 (if your application is .NET Framework 4.X compatible, like Unity is).
 
-Put the two libraries (BroadcastClient and BroadcastShared) anywhere in your project to use them.
+Put the two libraries (BroadcastClient and BroadcastShared) in **/Plugins**
 
 ### Usage 
 Before using the client, you have to instantiate it.
@@ -27,8 +27,8 @@ Notes :
 
 | I want to        | Function           | Returns  | Info |
 | ------------- |:-------------:| -----:| -----:|
-| Get the list of lobbies for my game   | client.GetLobbyList() | Read-only list of <Lobby> object | Returns the local list, does not connect to the server. Use `UpdateLobbyList` to update that list. 
-| Fetch the list of lobbies from the server   | client.UpdateLobbyList(Query customQuery=null) | Nothing | |
+| Get the list of lobbies for my game   | client.GetCachedLobbyList() | Read-only list of <Lobby> object | Returns the local list, does not connect to the server. Use `UpdateLobbyList` to update that list. 
+| Fetch the list of lobbies from the server   | client.FetchLobbies(Query customQuery=null) | `Task<List<Lobby>>` | |
 | Create a new lobby      | client.CreateLobby(...) | The lobby you just created, but with an ID delivered by the server | |
 | Update information for my lobby | client.UpdateLobby(<Lobby> object) | Nothing | |
 | Kill my lobby and remove it from Broadcast | client.DestroyLobby(uint lobbyID) | Nothing | |
