@@ -62,7 +62,8 @@ namespace Broadcast.Shared
                 logWriter = new StreamWriter(fs, Encoding.UTF8, 1024);
 
                 flushTimer = new Timer(
-                    e => {
+                    e =>
+                    {
                         logWriter.Flush();
                     },
                     null,
@@ -89,8 +90,7 @@ namespace Broadcast.Shared
 
             // Debug line formatting
             string line = "{0} [{1}] [{2}]:{3}";
-            line = string.Format(line, DateTime.Now.ToString(culture.DateTimeFormat.LongTimePattern), msgLevel.ToString(), filePath, string.Join(" ", msgs));
-
+            line = string.Format(line, DateTime.Now.ToString("G", culture), msgLevel.ToString(), filePath, string.Join(" ", msgs));
             if (outputToConsole) {
                 Console.ForegroundColor = colors[msgLevel];
                 logFunction(line);

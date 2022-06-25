@@ -76,7 +76,6 @@ namespace Broadcast.Shared
         /// <returns></returns>
         public static void ReadForever(this NetworkStream stream, OnMessageReadDelegate onRead)
         {
-            Console.WriteLine($"Reading forever on stream {stream.GetHashCode()}...");
             var bytes = new List<byte>();
             bool gotSize = false;
             int sizeToRead = 0;
