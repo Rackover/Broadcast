@@ -27,7 +27,7 @@ Notes :
 
 | I want to        | Function           | Returns  | Info |
 | ------------- |:-------------:| -----:| -----:|
-| Get the list of lobbies for my game   | client.GetCachedLobbyList() | Read-only list of <Lobby> object | Returns the local list, does not connect to the server. Use `UpdateLobbyList` to update that list. 
+| Get the list of lobbies for my game   | client.GetCachedLobbyList() | Read-only list of <Lobby> object | Returns the local list, does not connect to the server. Use `FetchLobbies` to update that list. 
 | Fetch the list of lobbies from the server   | client.FetchLobbies(Query customQuery=null) | `Task<List<Lobby>>` | |
 | Create a new lobby      | client.CreateLobby(...) | The lobby you just created, but with an ID delivered by the server | |
 | Update information for my lobby | client.UpdateLobby(<Lobby> object) | Nothing | |
