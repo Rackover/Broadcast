@@ -16,18 +16,14 @@ namespace Broadcast.Client
     {
         const ushort SECONDS_BEFORE_EMPTY_READ = 10;
 
-        public event Action<(byte[] address, ushort port)> onPunchRequest;
+        public event Action<(byte[] address, ushort port)> OnPunchRequest;
 
         private readonly string game;
         private readonly IPAddress address;
         private readonly TcpClient client;
         private readonly Logger logger;
 
-        private readonly List<Action> executionQueue = new List<Action>();
-
-        private readonly object mutex = new object();
-
-        private List<Lobby> cachedLobbies = new List<Lobby>();
+        private readonly List<Lobby> cachedLobbies = new List<Lobby>();
 
         public Client(string masterAddress, string gameName, bool allowOnlyInterNetworkAddress=false)
         {
@@ -77,7 +73,6 @@ namespace Broadcast.Client
             bool connectionOK = await ConnectIfNotConnected();
             if (!connectionOK) return null;
 
-            cachedLobbies.Clear();
             NetworkStream stream = client.GetStream();
 
             // Send the message to the connected TcpServer. 
@@ -100,7 +95,8 @@ namespace Broadcast.Client
                     logger.Info("Fetched {0} lobbies".Format(lobbies.Count));
 
                     lock (cachedLobbies) {
-                        cachedLobbies = lobbies;
+                        cachedLobbies.Clear();
+                        cachedLobbies.AddRange(lobbies);
                     }
 
                     return lobbies;
@@ -287,7 +283,7 @@ namespace Broadcast.Client
                                 var address = data[1] + "." + data[2] + "." + data[3] + "." + data[4];
                                 var port = BitConverter.ToUInt16(new byte[] { data[5], data[6] }, 0);
                                 logger.Debug("Invoking punch at " + address + ":" + port + "...");
-                                onPunchRequest?.Invoke((new byte[] { data[1], data[2], data[3], data[4] }, port));
+                                OnPunchRequest?.Invoke((new byte[] { data[1], data[2], data[3], data[4] }, port));
                                 break;
 
                             case Networking.PROTOCOL_HELLO:
