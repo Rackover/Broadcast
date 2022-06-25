@@ -9,7 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BroadcastClient\BroadcastClient.csproj" />
     <ProjectReference Include="..\BroadcastShared\BroadcastShared.csproj" />
-    <ProjectReference Include="..\Broadcast\BroadcastServer.csproj" />
+    <ProjectReference Include="..\BroadcastServer\BroadcastServer.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion 
-cd Broadcast
+cd BroadcastServer
 
 set list[0]=win-x64
 set list[1]=win-x86
