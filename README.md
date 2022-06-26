@@ -1,4 +1,4 @@
-# Broadcast
+# ![alt](static/Icon.png) Broadcast
 Master server broadcasting for any game
 
 # How to use
