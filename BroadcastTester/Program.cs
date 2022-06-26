@@ -7,6 +7,8 @@ namespace Broadcast.Tester
 {
     class Program
     {
+        const int CLIENTS = 50;
+
         static void Main(string[] args)
         {
             new Task(delegate {

@@ -58,7 +58,18 @@ namespace Broadcast.Shared
                 flushTimer?.Dispose();
                 logWriter?.Dispose();
 
-                var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                FileStream fs = null;
+                string originalFilePath = filePath;
+
+                for (int i = 0; i < 10; i++) {
+                    try {
+                        fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                    }
+                    catch (IOException) {
+                        filePath = $"{originalFilePath}.{i+1}";
+                    }
+                }
+                 
                 logWriter = new StreamWriter(fs, Encoding.UTF8, 1024);
 
                 flushTimer = new Timer(
@@ -97,7 +108,7 @@ namespace Broadcast.Shared
             }
 
             if (outputToFile) {
-                logWriter.WriteLine(line);
+                logWriter?.WriteLine(line);
             }
         }
     }

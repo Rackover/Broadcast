@@ -4,9 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.Serialization;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
 
@@ -30,6 +28,8 @@ namespace Broadcast.Client
             logger = new Logger(programName: "B_Client", outputToFile: true);
             game = gameName;
 
+            logger.Info($"Initializing broadcast client with game name [{game}]");
+
             logger.Debug("Resolving " + masterAddress + "...");
             var addresses = Dns.GetHostAddresses(masterAddress);
 
@@ -46,8 +46,6 @@ namespace Broadcast.Client
 
             client = new TcpClient(interAddr.AddressFamily);
             address = interAddr;
-
-            Task.Run(Start);
         }
 
         public IReadOnlyList<Lobby> GetCachedLobbyList()
@@ -58,6 +56,7 @@ namespace Broadcast.Client
         private async Task Start()
         {
             logger.Debug($"Connecting to {address} at port {Networking.PORT}...");
+
             await client.ConnectAsync(address.ToString(), Networking.PORT);
             logger.Debug("Done! Setting receive timeout...");
             client.ReceiveTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
@@ -80,18 +79,18 @@ namespace Broadcast.Client
             {
                 query = new Query(game);
             }
+
             List<byte> message = new List<byte>();
             message.Add(Networking.PROTOCOL_QUERY);
             message.AddRange(query.Serialize());
             stream.WriteData(message.ToArray());
-            List<Lobby> lobbies = new List<Lobby>();
 
             try
             {
                 byte[] data = stream.ReadUntilControllerFound(Networking.PROTOCOL_QUERY_RESPONSE);
 
                 if (data != null) {
-                    lobbies = Lobby.DeserializeList(data);
+                    List<Lobby> lobbies = Lobby.DeserializeList(data);
                     logger.Info("Fetched {0} lobbies".Format(lobbies.Count));
 
                     lock (cachedLobbies) {
@@ -142,7 +141,13 @@ namespace Broadcast.Client
 
         uint SubmitLobby(Lobby lobby)
         {
-            if (!ConnectIfNotConnected().Result) return 0;
+            Task.Run(async () =>
+            {
+                await ConnectIfNotConnected();
+            }).Wait();
+            
+            if (!IsConnected()) return 0;
+
             NetworkStream stream = client.GetStream();
 
             lobby.game = game;
@@ -248,7 +253,10 @@ namespace Broadcast.Client
             else {
                 logger.Info("Client not connected, reconnecting...");
 
-                await Start();
+                try {
+                    await Start();
+                }
+                catch { }
 
                 if (IsConnected()) {
                     return true;
@@ -276,14 +284,14 @@ namespace Broadcast.Client
                         switch (controllerFound) {
                             // PROTOCOL--IP1--IP2--IP3--IP4--PORT--PORT
                             case Networking.PROTOCOL_HELLO_PLEASE_PUNCH:
-                                if (data.Length < 7) {
+                                if (data.Length < 6) {
                                     logger.Warn("Ignored punch request from TCP server because of a malformed request (read " + data.Length + " bytes)");
                                     return true;
                                 }
-                                var address = data[1] + "." + data[2] + "." + data[3] + "." + data[4];
-                                var port = BitConverter.ToUInt16(new byte[] { data[5], data[6] }, 0);
+                                var address = data[0] + "." + data[1] + "." + data[2] + "." + data[3];
+                                var port = BitConverter.ToUInt16(new byte[] { data[4], data[5] }, 0);
                                 logger.Debug("Invoking punch at " + address + ":" + port + "...");
-                                OnPunchRequest?.Invoke((new byte[] { data[1], data[2], data[3], data[4] }, port));
+                                OnPunchRequest?.Invoke((new byte[] { data[0], data[1], data[2], data[3] }, port));
                                 break;
 
                             case Networking.PROTOCOL_HELLO:
@@ -320,35 +328,35 @@ namespace Broadcast.Client
                 try {
                     logger.Trace("TEST --> Updating lobby list");
                     await FetchLobbies(new Query("test"));
-                    Thread.Sleep(1000);
+                    await Task.Delay(1000);
                     if (new Random().Next(0, 3) < 2) {
                         logger.Trace("TEST --> Creating new lobby");
                         var myLobby = CreateLobby(new Lobby() { game = "test" });
                         createdLobbies.Add(myLobby);
                         logger.Trace("TEST --> Successfully created lobby " + myLobby + "");
-                        Thread.Sleep(5000);
+                        await Task.Delay(5000);
                     }
                     else if (new Random().Next(0, 3) < 1 && createdLobbies.Count > 0) {
                         logger.Trace("TEST --> Destroying a created lobby");
                         await DestroyLobby(createdLobbies[0]);
                         createdLobbies.RemoveAt(0);
-                        Thread.Sleep(5000);
+                        await Task.Delay(5000);
                     }
                     else if (createdLobbies.Count > 0)
                     {
                         logger.Trace("TEST --> Punching a created lobby ("+ createdLobbies[0]+")");
                         await PunchLobby(createdLobbies[0]);
-                        Thread.Sleep(2000);
+                        await Task.Delay(2000);
                     }
                     logger.Trace("TEST --> End of decision loop");
                 }
                 catch (IOException) {
-                    Thread.Sleep(3000);
+                    await Task.Delay(3000);
                     logger.Trace("TEST --> Server out, retrying...");
                     client.Close();
                 }
                 catch (SocketException) {
-                    Thread.Sleep(3000);
+                    await Task.Delay(3000);
                     logger.Trace("TEST --> Server dead, retrying...");
                     client.Close();
                 }
