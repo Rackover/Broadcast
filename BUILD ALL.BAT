@@ -1,0 +1,3 @@
+"BUILD SERVER.bat"
+"BUILD CLIENT.bat"
+PAUSE

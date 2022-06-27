@@ -66,6 +66,7 @@ namespace Broadcast.Shared
                 for (int i = 0; i < 10; i++) {
                     try {
                         fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                        break;
                     }
                     catch (IOException) {
                         filePath = $"{originalFilePath}.{i+1}";

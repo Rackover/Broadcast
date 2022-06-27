@@ -16,5 +16,4 @@ for /l %%n in (0,1,3) do (
    del "..\Release\!list[%%n]!.zip"
    "C:\Program Files\7-Zip\7z.exe" a "..\Release\!list[%%n]!.zip" "..\Release\!list[%%n]!"
 )
-
-pause
+cd ..
