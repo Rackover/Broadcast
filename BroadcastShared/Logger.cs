@@ -34,6 +34,8 @@ namespace Broadcast.Shared
         string programName;
         Timer flushTimer;
         Action<object> logFunction = (Action<object>)Console.WriteLine;
+        
+        readonly object mutex = new object();
 
         public Logger(string programName = null, bool outputToFile = false, bool outputToConsole = true, bool addDateSuffix = false)
         {
@@ -93,22 +95,24 @@ namespace Broadcast.Shared
 
         void LogMessage(LEVEL msgLevel, object msgs, string filePath = "")
         {
-            if (msgLevel < level) {
-                return;
-            }
+            lock (mutex) {
+                if (msgLevel < level) {
+                    return;
+                }
 
-            string caller = programName;
+                string caller = programName;
 
-            // Debug line formatting
-            string line = "{0} [{1}] [{2}]:{3}";
-            line = string.Format(line, DateTime.Now.ToString("G", culture), msgLevel.ToString(), filePath, string.Join(" ", msgs));
-            if (outputToConsole) {
-                Console.ForegroundColor = colors[msgLevel];
-                logFunction(line);
-            }
+                // Debug line formatting
+                string line = "{0} [{1}] [{2}]:{3}";
+                line = string.Format(line, DateTime.Now.ToString("G", culture), msgLevel.ToString(), filePath, string.Join(" ", msgs));
+                if (outputToConsole) {
+                    Console.ForegroundColor = colors[msgLevel];
+                    logFunction(line);
+                }
 
-            if (outputToFile) {
-                logWriter?.WriteLine(line);
+                if (outputToFile) {
+                    logWriter?.WriteLine(line);
+                }
             }
         }
     }

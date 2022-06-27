@@ -12,8 +12,6 @@ namespace Broadcast.Client
 {
     public class Client
     {
-        const ushort SECONDS_BEFORE_EMPTY_READ = 10;
-
         public event Action<(byte[] address, ushort port)> OnPunchRequest;
 
         private readonly string game;
@@ -58,10 +56,7 @@ namespace Broadcast.Client
             logger.Debug($"Connecting to {address} at port {Networking.PORT}...");
 
             await client.ConnectAsync(address.ToString(), Networking.PORT);
-            logger.Debug("Done! Setting receive timeout...");
-            client.ReceiveTimeout = SECONDS_BEFORE_EMPTY_READ * 1000;
 
-            logger.Debug("Set client ReceiveTimeout to " + (SECONDS_BEFORE_EMPTY_READ * 1000) + "ms");
             logger.Info("Client connected to " + address + ":" + Networking.PORT);
         }
 

@@ -14,7 +14,8 @@ namespace Broadcast.Server
     {
         const ushort MAX_LOBBIES_PER_QUERY = 200;
         const byte VERSION = Networking.VERSION;
-        const ushort SECONDS_BEFORE_CLEANUP = 30;
+        const ushort SECONDS_BEFORE_CLEANUP = 5;
+        const string KILL_LIST_NAME = "KILL.TXT";
 
         private delegate void ControllerHandlerDelegate(byte[] data, TcpClient client, uint clientId);
 
@@ -26,7 +27,7 @@ namespace Broadcast.Server
         private readonly Dictionary<TcpClient, byte[]> pendingPunchRequests = new Dictionary<TcpClient, byte[]>();
         private readonly Logger logger;
         private readonly RandomNumberGenerator random;
-
+        private readonly HashSet<string> killList = new HashSet<string>();
 
         public Server()
         {
@@ -50,6 +51,19 @@ namespace Broadcast.Server
             {
                 TcpClient client = server.AcceptTcpClient();  //if a connection exists, the server will accept it
 
+                string addr = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+                logger.Trace($"Accepted connection from client with addr {addr}");
+
+                UpdateKillList();
+
+                lock (killList) {
+                    if (killList.Contains(addr)) {
+                        logger.Info($"Client with addr {addr} is on the kill list, killing connection");
+                        client.Dispose();
+                        continue;
+                    }
+                }
+
                 uint clientId = 0;
                 while (clientId == 0 || clientIDs.Contains(clientId)) {
                     clientId = (uint)new Random().Next(int.MaxValue);
@@ -62,6 +76,28 @@ namespace Broadcast.Server
                 logger.Info($"Client [{clientId}] just connected (ENTER)");
 
                 Task.Run(() => HandleClientMessages(clientId, client));
+            }
+        }
+
+        private void UpdateKillList()
+        {
+            lock (killList) {
+                killList.Clear();
+                if (File.Exists(KILL_LIST_NAME)) {
+                    try {
+                        using (FileStream fs = File.OpenRead(KILL_LIST_NAME)) {
+                            using (StreamReader sr = new StreamReader(fs)) {
+                                var line = sr.ReadLine().Trim();
+                                if (!killList.Contains(line)) {
+                                    killList.Add(line);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception e) {
+                        logger.Error($"Error while accessing kill list at {KILL_LIST_NAME}:\n{e}");
+                    }
+                }
             }
         }
 
@@ -184,18 +220,18 @@ namespace Broadcast.Server
             CleanLobbies();
             Query query = Query.Deserialize(deserializable);
 
-            logger.Debug("Preparing to send a lobby list to client [{0}]".Format(clientId));
+            logger.Debug($"Preparing to send a lobby list to client [{clientId}] for game {query.game}");
 
             var results = lobbies.FindAll(
                 o =>
                 {
                     if (
+                        query.game == o.game &&
                         (query.title.Length == 0 || o.title.ToLower().Contains(query.title.ToLower())) &&
                         (!query.freeSpotsOnly || o.maxPlayers < o.players) &&
                         (!query.officialOnly || o.isOfficial == true) &&
                         (!query.publicOnly || o.isPrivate == false) &&
-                        (!query.strictVersion || o.gameVersion == query.gameVersion) &&
-                            query.game == o.game
+                        (!query.strictVersion || o.gameVersion == query.gameVersion)
                         ) {
                         return true;
                     }
@@ -209,15 +245,15 @@ namespace Broadcast.Server
             var listBuf = Lobby.SerializeList(lobbies);
             client.GetStream().WriteData(listBuf.PrefixWith(Networking.PROTOCOL_QUERY_RESPONSE));
 
-            logger.Info($"Sent a lobby list ({results.Count} valid lobbies out of {lobbies.Count}) to client [{clientId}]! ({listBuf.Length} bytes)");
+            logger.Info($"Sent a lobby list for game {query.game} ({results.Count} valid lobbies out of {lobbies.Count}) to client [{clientId}]! ({listBuf.Length} bytes)");
         }
 
         void HandleSubmit(byte[] deserializable, TcpClient client, uint clientId)
         {
-            logger.Debug("Preparing to decode a lobby submission from client [{0}]".Format(clientId));
-
             Lobby lobby;
             lobby = Lobby.Deserialize(deserializable);
+
+            logger.Debug($"Preparing to decode a lobby submission from client [{clientId}] for game {lobby.game}");
 
             // Autofill address
             if (!lobby.HasAddress()) {
@@ -237,6 +273,7 @@ namespace Broadcast.Server
                 uIntId = lobbies[index].id;
                 lobby.id = uIntId;
                 lobbies[index] = lobby;
+                logger.Debug("Updating existing lobby (ID: " + uIntId + ") (IPV4: " + string.Join(".", lobby.address) + ")");
             }
             else {
                 uIntId = GenerateLobbyID();
