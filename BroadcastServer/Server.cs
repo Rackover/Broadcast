@@ -107,6 +107,15 @@ namespace Broadcast.Server
                 return;
             }
 
+            string addr = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+            lock (killList) {
+                if (killList.Contains(addr)) {
+                    logger.Info($"Client with addr {addr} is on the kill list, killing connection");
+                    client.Dispose();
+                    return;
+                }
+            }
+
             var messageType = msgBuffer[0];
             byte[] deserializable = new byte[msgBuffer.Length - 1];
             Array.Copy(msgBuffer, 1, deserializable, 0, deserializable.Length);
