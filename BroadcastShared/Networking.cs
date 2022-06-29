@@ -20,6 +20,7 @@ namespace Broadcast.Shared
         public const byte VERSION = 7;
 
         private const ushort MESSAGE_BITE_SIZE = 1024;
+        private const ushort MTU = 1000;
 
         public static void WriteData(this NetworkStream stream, byte[] data)
         {
@@ -30,7 +31,20 @@ namespace Broadcast.Shared
             var toWrite = responseList.ToArray();
 
             lock (stream) {
-                stream.Write(toWrite, 0, toWrite.Length);
+
+                while (toWrite.Length > 0) {
+                    stream.Write(toWrite, 0, Math.Min(toWrite.Length, MTU));
+
+                    if (toWrite.Length > MTU) {
+                        byte[] dataToWriteNext = new byte[toWrite.Length - MTU];
+
+                        Array.Copy(toWrite, dataToWriteNext.Length, dataToWriteNext, 0, dataToWriteNext.Length);
+                        toWrite = dataToWriteNext;
+                    }
+                    else {
+                        break;
+                    }
+                }
             }
         }
 

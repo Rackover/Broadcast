@@ -86,7 +86,7 @@ namespace Broadcast.Client
 
                 if (data != null) {
                     List<Lobby> lobbies = Lobby.DeserializeList(data);
-                    logger.Info("Fetched {0} lobbies".Format(lobbies.Count));
+                    logger.Info($"Fetched {lobbies.Count} lobbies (list was {data.Length} bytes long)");
 
                     lock (cachedLobbies) {
                         cachedLobbies.Clear();
@@ -136,10 +136,12 @@ namespace Broadcast.Client
 
         uint SubmitLobby(Lobby lobby)
         {
-            Task.Run(async () =>
+            if (!Task.Run(async () =>
             {
                 await ConnectIfNotConnected();
-            }).Wait();
+            }).Wait(5000)) { // Five seconds to connect, worst case
+                return 0;
+            }
             
             if (!IsConnected()) return 0;
 

@@ -103,6 +103,8 @@ namespace Broadcast.Shared
 
                 string caller = programName;
 
+                filePath = Path.GetFileName(filePath.Replace('\\', Path.DirectorySeparatorChar));
+
                 // Debug line formatting
                 string line = "{0} [{1}] [{2}]:{3}";
                 line = string.Format(line, DateTime.Now.ToString("G", culture), msgLevel.ToString(), filePath, string.Join(" ", msgs));

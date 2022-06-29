@@ -72,7 +72,7 @@ namespace BroadcastClientGUI
 
             Task.Run(async () =>
             {
-                var lobbies = await client.FetchLobbies();
+                var lobbies = await client.FetchLobbies(new Query(gameNameText.Text));
 
                 Action a = () =>
                 {

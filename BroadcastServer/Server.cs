@@ -13,6 +13,7 @@ namespace Broadcast.Server
     public class Server
     {
         const ushort MAX_LOBBIES_PER_QUERY = 200;
+        const ushort UPDATE_KILL_LIST_EVERY_SECOND = 10;
         const byte VERSION = Networking.VERSION;
         const ushort SECONDS_BEFORE_CLEANUP = 5;
         const string KILL_LIST_NAME = "KILL.TXT";
@@ -46,6 +47,20 @@ namespace Broadcast.Server
 
             server.Start();
             logger.Info($"Broadcast ready - Port {Networking.PORT} - Version {VERSION}");
+
+            Task.Run(async () =>
+            {
+                while (true) {
+                    try {
+                        UpdateKillList();
+                    }
+                    catch (Exception ex) {
+                        logger.Error($"While updating kill list:{ex}");
+                    }
+
+                    await Task.Delay(UPDATE_KILL_LIST_EVERY_SECOND * 1000);
+                }
+            });
 
             while (true)   //we wait for a connection
             {
@@ -144,20 +159,36 @@ namespace Broadcast.Server
                     });
                 }
                 catch (IOException e) {
-                    if (e?.InnerException is SocketException socketException && socketException.SocketErrorCode == SocketError.TimedOut) {
-                        logger.Info("Client [" + clientId + "] is no longer connected (TIME OUT)");
-                    }
+                    if (e?.InnerException is SocketException socketException)
+                    {
+                        if (socketException.SocketErrorCode == SocketError.TimedOut)
+                        {
+                            logger.Info("Client [" + clientId + "] is no longer connected (TIME OUT)");
+                        }
+                        else if (socketException.SocketErrorCode == SocketError.ConnectionReset)
+                        {
+                            logger.Info("Client [" + clientId + "] is no longer connected (EXIT)");
+                        }
+                        else
+                        {
+                            logger.Info($"Client [{clientId}] triggered an IOException with socket error code {socketException.SocketErrorCode}");
+                        }
+                    } 
                     else {
                         logger.Info("Client [" + clientId + "] triggered an IOException (see debug)");
                         logger.Debug(e.ToString());
                     }
+
+                    break;
                 }
                 catch (SocketException e) {
                     logger.Info("Client [" + clientId + "] triggered a SocketException (see debug)");
                     logger.Debug(e.ToString());
+
+                    break;
                 }
                 catch (TaskCanceledException e) {
-                    logger.Trace("Caught a task cancellation - probably normal, going to rethrow the cancellation to end the task. Trace below:\n" + e.ToString());
+                    logger.Trace("Caught a task cancellation - probably normal, trace below:\n" + e.ToString());
                     break;
                 }
                 catch (Exception e) {
