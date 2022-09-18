@@ -153,8 +153,7 @@ namespace BroadcastClientGUI
                 lobby.port = 1234;
                 lobby.mods = new string[0];
 
-                lobby.id = client.CreateLobby(lobby);
-                if (lobby.id == 0) {
+                if (!client.CreateLobby(lobby)) {
                     lobby = null;
                     MessageBox.Show(this, $"Could not create lobby", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }

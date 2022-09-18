@@ -18,7 +18,9 @@ namespace Broadcast.Shared
 
         public const byte PROTOCOL_GARBAGE_PUNCH = 255;
         public const byte VERSION = 7;
-
+        
+        public const ushort TIMEOUT_MS = 4000;
+        
         private const ushort MESSAGE_BITE_SIZE = 1024;
         private const ushort MTU = 1000;
 

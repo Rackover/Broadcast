@@ -1,21 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net;
-using System.Net.Sockets;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
-using Broadcast.Shared;
-
-namespace Broadcast.Server
+﻿namespace Broadcast.Server
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Net;
+    using System.Net.Sockets;
+    using System.Security.Cryptography;
+    using System.Text;
+    using System.Threading.Tasks;
+    using Broadcast.Shared;
+
     public class Server
     {
         const ushort MAX_LOBBIES_PER_QUERY = 200;
         const ushort UPDATE_KILL_LIST_EVERY_SECOND = 10;
         const byte VERSION = Networking.VERSION;
         const ushort SECONDS_BEFORE_CLEANUP = 5;
+        const ushort REPORT_EVERY_SECOND = 30;
         const string KILL_LIST_NAME = "KILL.TXT";
 
         private delegate void ControllerHandlerDelegate(byte[] data, TcpClient client, uint clientId);
@@ -48,6 +50,7 @@ namespace Broadcast.Server
             server.Start();
             logger.Info($"Broadcast ready - Port {Networking.PORT} - Version {VERSION}");
 
+            // Kill list update
             Task.Run(async () =>
             {
                 while (true) {
@@ -62,8 +65,25 @@ namespace Broadcast.Server
                 }
             });
 
+            // Report
+            Task.Run(async () =>
+            {
+                while (true) {
+                    try {
+                        int threadCount = Process.GetCurrentProcess().Threads.Count;
+                        logger.Info($"Status: {clientIDs.Count} clients registered / {lobbies.Count} lobbies / {killList.Count} kill entries / {pendingPunchRequests.Count} pending punches / {threadCount} threads");
+                    }
+                    catch (Exception ex) {
+                        logger.Error($"In status report: {ex}");
+                    }
+
+                    await Task.Delay(REPORT_EVERY_SECOND * 1000);
+                }
+            });
+
             while (true)   //we wait for a connection
             {
+                logger.Debug($"Waiting for the next TCP client...");
                 TcpClient client = server.AcceptTcpClient();  //if a connection exists, the server will accept it
 
                 string addr = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
@@ -151,6 +171,8 @@ namespace Broadcast.Server
             while (true) {
                 try {
                     var stream = client.GetStream();
+                    stream.ReadTimeout = Broadcast.Shared.Networking.TIMEOUT_MS;
+
                     // This should block eternally, unless there is an error
                     stream.ReadForever((bytes) =>
                     {
@@ -159,21 +181,17 @@ namespace Broadcast.Server
                     });
                 }
                 catch (IOException e) {
-                    if (e?.InnerException is SocketException socketException)
-                    {
-                        if (socketException.SocketErrorCode == SocketError.TimedOut)
-                        {
+                    if (e?.InnerException is SocketException socketException) {
+                        if (socketException.SocketErrorCode == SocketError.TimedOut) {
                             logger.Info("Client [" + clientId + "] is no longer connected (TIME OUT)");
                         }
-                        else if (socketException.SocketErrorCode == SocketError.ConnectionReset)
-                        {
+                        else if (socketException.SocketErrorCode == SocketError.ConnectionReset) {
                             logger.Info("Client [" + clientId + "] is no longer connected (EXIT)");
                         }
-                        else
-                        {
+                        else {
                             logger.Info($"Client [{clientId}] triggered an IOException with socket error code {socketException.SocketErrorCode}");
                         }
-                    } 
+                    }
                     else {
                         logger.Info("Client [" + clientId + "] triggered an IOException (see debug)");
                         logger.Debug(e.ToString());
@@ -201,6 +219,8 @@ namespace Broadcast.Server
             lock (clientIDs) {
                 clientIDs.Remove(clientId);
             }
+
+            client.Dispose();
         }
 
         void CleanLobbies()
@@ -222,6 +242,7 @@ namespace Broadcast.Server
                     }
                 }
             }
+
             if (removed > 0) logger.Debug("Cleanup finished, removed " + removed + " lobbies");
             logger.Trace("Done cleaning lobbies up");
         }
@@ -275,6 +296,7 @@ namespace Broadcast.Server
                         ) {
                         return true;
                     }
+
                     return false;
                 }
             );
@@ -353,6 +375,7 @@ namespace Broadcast.Server
                 var removed = lobbies.RemoveAll(o => o.id == targetLobby.id);
                 logger.Debug("Removed {1} lobbies (every lobby with ID {2}) as requested by client [{0}]".Format(clientId, removed, targetLobbyId));
             }
+
             logger.Info("Finished removing lobby {1} as requested by client [{0}]".Format(clientId, targetLobbyId));
         }
 

@@ -15,7 +15,7 @@ namespace Broadcast.Tester
                 new Server.Server();
             }).Start();
 
-            new Client.Client("localhost", "test", true).Test().Wait();
+            new Client.Client("localhost", "test").Test().Wait();
         }
     }
 }
