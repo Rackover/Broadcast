@@ -6,8 +6,10 @@
     using System.IO;
     using System.Net;
     using System.Net.Sockets;
+    using System.Runtime.InteropServices;
     using System.Security.Cryptography;
     using System.Text;
+    using System.Threading;
     using System.Threading.Tasks;
     using Broadcast.Shared;
 
@@ -15,22 +17,36 @@
     {
         const ushort MAX_LOBBIES_PER_QUERY = 200;
         const ushort UPDATE_KILL_LIST_EVERY_SECOND = 10;
+        const ushort REPORT_EVERY_SECOND = 30;
         const byte VERSION = Networking.VERSION;
         const ushort SECONDS_BEFORE_CLEANUP = 5;
-        const ushort REPORT_EVERY_SECOND = 30;
         const string KILL_LIST_NAME = "KILL.TXT";
+
+        private struct Client
+        {
+            public readonly uint id;
+            public readonly Thread thread;
+
+            public Client(uint id, Thread thread)
+            {
+                this.id = id;
+                this.thread = thread;
+            }
+        }
 
         private delegate void ControllerHandlerDelegate(byte[] data, TcpClient client, uint clientId);
 
         private readonly Dictionary<byte, ControllerHandlerDelegate> controllers = new Dictionary<byte, ControllerHandlerDelegate>();
 
-        private readonly HashSet<uint> clientIDs = new HashSet<uint>();
         private readonly List<Lobby> lobbies = new List<Lobby>();
         private readonly Dictionary<Lobby, DateTime> lastHeardAbout = new Dictionary<Lobby, DateTime>();
         private readonly Dictionary<TcpClient, byte[]> pendingPunchRequests = new Dictionary<TcpClient, byte[]>();
         private readonly Logger logger;
         private readonly RandomNumberGenerator random;
         private readonly HashSet<string> killList = new HashSet<string>();
+
+        private readonly Thread tickingThread;
+        private readonly List<Client> clients = new List<Client>(8);
 
         public Server()
         {
@@ -51,36 +67,15 @@
             logger.Info($"Broadcast ready - Port {Networking.PORT} - Version {VERSION}");
 
             // Kill list update
-            Task.Run(async () =>
-            {
-                while (true) {
-                    try {
-                        UpdateKillList();
-                    }
-                    catch (Exception ex) {
-                        logger.Error($"While updating kill list:{ex}");
-                    }
+            tickingThread = new Thread(Tick);
+            tickingThread.Name = "Ticker";
+            tickingThread.Start();
 
-                    await Task.Delay(UPDATE_KILL_LIST_EVERY_SECOND * 1000);
-                }
-            });
+            AcceptClients(server);
+        }
 
-            // Report
-            Task.Run(async () =>
-            {
-                while (true) {
-                    try {
-                        int threadCount = Process.GetCurrentProcess().Threads.Count;
-                        logger.Info($"Status: {clientIDs.Count} clients registered / {lobbies.Count} lobbies / {killList.Count} kill entries / {pendingPunchRequests.Count} pending punches / {threadCount} threads");
-                    }
-                    catch (Exception ex) {
-                        logger.Error($"In status report: {ex}");
-                    }
-
-                    await Task.Delay(REPORT_EVERY_SECOND * 1000);
-                }
-            });
-
+        private void AcceptClients(TcpListener server)
+        {
             while (true)   //we wait for a connection
             {
                 logger.Debug($"Waiting for the next TCP client...");
@@ -100,17 +95,70 @@
                 }
 
                 uint clientId = 0;
-                while (clientId == 0 || clientIDs.Contains(clientId)) {
+                while (clientId == 0) {
                     clientId = (uint)new Random().Next(int.MaxValue);
+
+                    lock (clients) {
+                        for (int i = 0; i < clients.Count; i++) {
+                            if (clients[i].id == clientId) {
+                                clientId = 0;
+                                break;
+                            }
+                        }
+                    }
                 }
 
-                lock (clientIDs) {
-                    clientIDs.Add(clientId);
-                }
 
                 logger.Info($"Client [{clientId}] just connected (ENTER)");
 
-                Task.Run(() => HandleClientMessages(clientId, client));
+                var thread =  new Thread(() => HandleClientMessages(clientId, client));
+                thread.Name = $"Client thread (client {clientId})";
+                lock (clients) {
+                    clients.Add(new Client(clientId, thread));
+                }
+
+                thread.Start();
+            }
+        }
+
+        private void Tick()
+        {
+            int lastReportSecondsAgo = 0;
+            int lastKillListUpdateSecondsAgo = 0;
+
+            if (Thread.CurrentThread != tickingThread) {
+                logger.Error($"Wrong thread for tick");
+                throw new Exception($"Attempted ticking on another thread that the ticking thread");
+            }
+
+            while (true) {
+
+                if (lastKillListUpdateSecondsAgo % UPDATE_KILL_LIST_EVERY_SECOND == 0) {
+
+                    lastKillListUpdateSecondsAgo = 0;
+
+                    try {
+                        UpdateKillList();
+                    }
+                    catch (Exception ex) {
+                        logger.Error($"While updating kill list:{ex}");
+                    }
+                }
+
+                if (lastReportSecondsAgo % UPDATE_KILL_LIST_EVERY_SECOND == 0) {
+                    lastReportSecondsAgo = 0;
+                    try {
+                        int threadCount = Process.GetCurrentProcess().Threads.Count;
+                        logger.Info($"Status: {clients.Count} clients registered / {lobbies.Count} lobbies / {killList.Count} kill entries / {pendingPunchRequests.Count} pending punches / {threadCount} threads");
+                    }
+                    catch (Exception ex) {
+                        logger.Error($"In status report: {ex}");
+                    }
+                }
+
+                Thread.Sleep(1000); // 1 second
+                lastReportSecondsAgo++;
+                lastKillListUpdateSecondsAgo++;
             }
         }
 
@@ -216,11 +264,12 @@
                 }
             }
 
-            lock (clientIDs) {
-                clientIDs.Remove(clientId);
+            lock (clients) {
+                clients.RemoveAll(o=>o.id == clientId);
             }
 
             client.Dispose();
+            logger.Info($"Terminating client thread for client (preiouvsly at) id {clientId}");
         }
 
         void CleanLobbies()
